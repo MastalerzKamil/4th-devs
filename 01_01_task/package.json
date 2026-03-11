@@ -1,0 +1,17 @@
+{
+  "name": "01_01_task",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Batch tagging with structured output using Instructor JS",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "test": "node app.js"
+  },
+  "dependencies": {
+    "@instructor-ai/instructor": "^1.7.0",
+    "zod": "^3.22.4",
+    "openai": "^4.52.7"
+  },
+  "license": "ISC"
+}
