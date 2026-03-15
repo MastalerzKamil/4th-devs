@@ -50,6 +50,7 @@
     "lesson5:install": "npm install --prefix ./mcp/files-mcp && npm install --prefix ./01_05_confirmation && npm install --prefix ./01_05_agent",
     "prelesson5:confirmation": "npm run ensure:files-mcp",
     "lesson5:confirmation": "node ./01_05_confirmation/app.js",
+    "lesson5:task": "node --env-file=.env ./01_05_task/app.js",
     "prelesson5:agent": "npm run ensure:files-mcp && cd 01_05_agent && npx tsx src/db/setup.ts",
     "lesson5:agent": "cd 01_05_agent && npx tsx src/index.ts",
     "lesson5:agent:db:push": "cd 01_05_agent && npx drizzle-kit push",

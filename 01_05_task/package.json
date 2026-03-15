@@ -1,0 +1,5 @@
+{
+  "name": "railway",
+  "type": "module",
+  "description": "Railway task: activate route X-01 via self-documenting hub API"
+}
