@@ -50,6 +50,41 @@ export async function executePreparedChat(
 ): Promise<ChatResult> {
   const { agent, traceId, responseStartSequence } = prepared
 
+  const session = req.sessionId
+    ? await ctx.repositories.sessions.getById(req.sessionId) ?? await ctx.repositories.sessions.create(userId)
+    : await ctx.repositories.sessions.create(userId)
+
+  // When template specifies tools, use only those (no merge). Otherwise merge with registry.
+  const tools = (agentConfig.tools && agentConfig.tools.length > 0)
+    ? agentConfig.tools
+    : mergeTools(ctx, agentConfig.tools)
+
+  const agent = await ctx.repositories.agents.create({
+    sessionId: session.id,
+    task: agentConfig.task,
+    config: { model: agentConfig.model, temperature: req.temperature, maxTokens: req.maxTokens, tools },
+  })
+
+  const input = typeof req.input === 'string'
+    ? [{ type: 'message' as const, role: 'user' as const, content: req.input }]
+    : req.input
+
+  for (const item of input) {
+    if (item.type === 'message') {
+      await ctx.repositories.items.create(agent.id, {
+        type: 'message',
+        role: item.role,
+        content: toContent(item.content),
+      })
+    }
+  }
+
+  return { agent, traceId }
+}
+
+export async function processChat(req: ChatRequest, ctx: RuntimeContext, userId: UserId): Promise<ChatResult> {
+  const { agent, traceId } = await setupChatAgent(req, ctx, userId)
+
   const result = await runAgent(agent.id, ctx, {
     maxTurns: 10,
     execution: createExecution(agent, req, userId, traceId),

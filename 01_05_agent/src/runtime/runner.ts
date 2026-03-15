@@ -383,7 +383,32 @@ async function handleTurnResponse(
       continue
     }
 
-    // ── Async / unknown tool type: defer ─────────────────────────────
+    // ── Async tool: execute (same as sync; handler is async) ──────────
+    if (tool.type === 'async') {
+      log.info({ ...toolCtx, args: argsPreview }, `${fc.name}`)
+      runtime.events.emit({ type: 'tool.called', ctx: makeCtx(exec, agent), callId: fc.callId, name: fc.name, arguments: fc.arguments })
+      const start = Date.now()
+      const result = await runtime.tools.execute(fc.name, fc.arguments, signal)
+      const ms = Date.now() - start
+      const output = result.ok ? result.output : result.error
+      log.info({ ...toolCtx, ms, ok: result.ok, output: truncate(output) }, `${fc.name} ok ${ms}ms`)
+      await runtime.repositories.items.create(agent.id, {
+        type: 'function_call_output',
+        callId: fc.callId,
+        output,
+        isError: !result.ok,
+        turnNumber,
+      })
+      if (result.ok) {
+        runtime.events.emit({ type: 'tool.completed', ctx: makeCtx(exec, agent), callId: fc.callId, name: fc.name, arguments: fc.arguments, output: truncate(output, 1000), durationMs: ms, startTime: start })
+      } else {
+        runtime.events.emit({ type: 'tool.failed', ctx: makeCtx(exec, agent), callId: fc.callId, name: fc.name, arguments: fc.arguments, error: output, durationMs: ms, startTime: start })
+      }
+      hasSyncTools = true
+      continue
+    }
+
+    // ── Unknown tool type: defer ──────────────────────────────────────
     const waitType = 'tool' as const
     log.info({ ...toolCtx, args: argsPreview, type: waitType, deferred: true }, `${fc.name} → deferred`)
     waitingFor.push({

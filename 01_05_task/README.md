@@ -42,10 +42,55 @@ Skrypt sam:
 |------|------|
 | `app.js` | Skrypt do uruchomienia — wywołuje API i wypisuje flagę. |
 | `railway-api.js` | Wspólna logika wywołań API (help, reconfigure, setstatus, save) z obsługą 503/429. |
-| `railway-tool.js` | Definicja narzędzia „railway” (dla ewentualnego podłączenia do agenta w 01_05_agent). |
-| `agents/railway.agent.md` | Szablon agenta „railway” (do użycia razem z narzędziem, jeśli zintegrujesz to z 01_05_agent). |
+| `railway-tool.js` | Definicja narzędzia „railway” — 01_05_agent ładuje je stąd przy starcie. |
+| `agents/railway.agent.md` | Szablon agenta „railway” — 01_05_agent ładuje go stąd. |
 
-Do rozwiązania zadania wystarczy **`npm run lesson5:task`** — reszta plików to kod do ewentualnej integracji z agentem/MCP.
+---
+
+## Użycie agenta (01_05_agent) — curl
+
+Serwer agenta nasłuchuje domyślnie na `http://127.0.0.1:3000`. API wymaga nagłówka `Authorization: Bearer <token>`. Token tworzysz przez seed bazy w 01_05_agent (domyślny z seed to `0f47acce-3aa7-4b58-9389-21b2940ecc70`).
+
+**1. Uruchom serwer agenta** (z głównego katalogu repozytorium):
+
+```bash
+npm run lesson5:agent
+```
+
+**2. Wywołanie agenta „railway” (jedna wiadomość, odpowiedź w JSON):**
+
+```bash
+curl -s http://127.0.0.1:3000/api/chat/completions \
+  -H "Authorization: Bearer 0f47acce-3aa7-4b58-9389-21b2940ecc70" \
+  -H "Content-Type: application/json" \
+  -d '{"agent":"railway","input":"Aktywuj trasę X-01 i podaj mi flagę."}' | jq
+```
+
+**3. To samo ze streamowaniem (SSE):**
+
+```bash
+curl -N http://127.0.0.1:3000/api/chat/completions \
+  -H "Authorization: Bearer 0f47acce-3aa7-4b58-9389-21b2940ecc70" \
+  -H "Content-Type: application/json" \
+  -d '{"agent":"railway","input":"Aktywuj trasę X-01 i podaj flagę.","stream":true}'
+```
+
+**4. Kolejna wiadomość w tej samej sesji** (skopiuj `sessionId` z odpowiedzi pierwszego wywołania):
+
+```bash
+curl -s http://127.0.0.1:3000/api/chat/completions \
+  -H "Authorization: Bearer 0f47acce-3aa7-4b58-9389-21b2940ecc70" \
+  -H "Content-Type: application/json" \
+  -d '{"agent":"railway","sessionId":"<sessionId-z-odpowiedzi>","input":"Jaka była flaga?"}' | jq
+```
+
+**5. Health check (bez auth):**
+
+```bash
+curl -s http://127.0.0.1:3000/health | jq
+```
+
+Jeśli uruchamiasz agenta na innym porcie lub hoście, zamień `http://127.0.0.1:3000` na właściwy URL. Token musisz mieć z bazy 01_05_agent (po `npm run lesson5:agent:db:seed` w katalogu głównym lub w 01_05_agent).
 
 ---
 

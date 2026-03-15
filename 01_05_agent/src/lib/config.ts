@@ -28,7 +28,7 @@ const envSchema = z.object({
 
   // Request limits
   BODY_LIMIT: z.coerce.number().int().positive().default(1024 * 1024), // 1MB
-  TIMEOUT_MS: z.coerce.number().int().positive().default(60_000),      // 60s
+  TIMEOUT_MS: z.coerce.number().int().positive().default(180_000),     // 3min (multi-turn agents)
 
   // CORS
   CORS_ORIGIN: z.string().min(1).default('*'),

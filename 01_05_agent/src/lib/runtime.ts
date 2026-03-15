@@ -1,8 +1,8 @@
 /**
  * Runtime initialization
  */
-import { mkdirSync } from 'node:fs'
-import { dirname } from 'node:path'
+import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { createEventEmitter } from '../events/index.js'
 import { createSQLiteRepositories } from '../repositories/index.js'
 import { createContext, type RuntimeContext } from '../runtime/index.js'
@@ -82,6 +82,18 @@ export async function initRuntime(): Promise<RuntimeContext> {
   tools.register(delegateTool)
   tools.register(sendMessageTool)
   tools.register(askUserTool)
+
+  // Railway tool from 01_05_task (must be next to 01_05_agent when run from repo root)
+  const taskDir = path.join(process.cwd(), '..', '01_05_task')
+  try {
+    const toolUrl = pathToFileURL(path.join(taskDir, 'railway-tool.js')).href
+    const { railwayTool } = await import(toolUrl)
+    tools.register(railwayTool)
+    log.info('railway tool loaded from 01_05_task')
+  } catch (err) {
+    log.warn({ err: err instanceof Error ? err.message : String(err), taskDir }, 'railway tool not loaded')
+  }
+
   log.info({ tools: tools.list().map(t => t.name) }, 'tools registered')
 
   // Initialize MCP clients
