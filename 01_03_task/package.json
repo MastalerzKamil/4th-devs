@@ -1,0 +1,11 @@
+{
+  "name": "01_03_task-proxy",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "HTTP proxy-asystent z pamięcią sesji + API paczek (zadanie proxy AI Devs)",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "license": "ISC"
+}
