@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IoT Data Ingestion Report</title>
+  
+  <!-- Google Fonts: Lexend + IBM Plex Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&family=Lexend:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <style>
+    /* ========================================
+       CSS VARIABLES
+       ======================================== */
+    :root {
+      /* Colors */
+      --color-bg: #0d0d0d;
+      --color-surface: #1a1a1a;
+      --color-border: #2a2a2a;
+      --color-text: #e5e5e5;
+      --color-text-secondary: #888888;
+      --color-accent: #6b9fff;
+      --color-success: #4ade80;
+      --color-warning: #fbbf24;
+      --color-error: #f87171;
+      
+      /* Typography */
+      --font-sans: "Lexend", -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: "IBM Plex Mono", "SF Mono", Consolas, monospace;
+      
+      /* Spacing */
+      --space-1: 4px;
+      --space-2: 8px;
+      --space-3: 16px;
+      --space-4: 24px;
+      --space-5: 32px;
+      --space-6: 48px;
+      --space-7: 64px;
+      
+      /* Page Layout - CRITICAL FOR PDF */
+      --page-padding-x: 56px;
+      --page-padding-y: 48px;
+      --content-max-width: 720px;
+    }
+
+    /* ========================================
+       PRINT SETUP - MUST COME FIRST
+       ======================================== */
+    @page {
+      size: A4;
+      margin: 0;
+    }
+
+    /* ========================================
+       RESET & BASE
+       ======================================== */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      font-size: 14px;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      font-weight: 400;
+      line-height: 1.7;
+      letter-spacing: 0.01em;
+      color: var(--color-text);
+      background-color: var(--color-bg);
+      margin: 0;
+      padding: 0;
+    }
+
+    /* ========================================
+       PAGE STRUCTURE - FOR PDF
+       Each .page is one printed page
+       ======================================== */
+    .page {
+      width: 100%;
+      min-height: 100vh;
+      padding: var(--page-padding-y) var(--page-padding-x);
+      background-color: var(--color-bg);
+      page-break-after: always;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .page:last-child {
+      page-break-after: auto;
+    }
+
+    .page-content {
+      flex: 1;
+    }
+
+    /* ========================================
+       TYPOGRAPHY
+       ======================================== */
+    h1, h2, h3, h4, h5, h6 {
+      font-weight: 600;
+      line-height: 1.25;
+      margin-top: 0;
+      margin-bottom: 0.75em;
+      letter-spacing: -0.01em;
+    }
+
+    h1 {
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+      padding-bottom: var(--space-4);
+      border-bottom: 1px solid var(--color-border);
+      margin-bottom: var(--space-5);
+    }
+
+    h2 {
+      font-size: 26px;
+      margin-top: var(--space-5);
+    }
+
+    h3 {
+      font-size: 21px;
+      font-weight: 500;
+      margin-top: var(--space-4);
+    }
+
+    h4 {
+      font-size: 17px;
+      font-weight: 500;
+      margin-top: var(--space-3);
+    }
+
+    p {
+      margin-bottom: 1.25em;
+      max-width: var(--content-max-width);
+    }
+
+    p:last-child {
+      margin-bottom: 0;
+    }
+
+    strong {
+      font-weight: 600;
+    }
+
+    em {
+      font-style: italic;
+    }
+
+    small, .text-small {
+      font-size: 12px;
+      letter-spacing: 0.02em;
+    }
+
+    .text-secondary {
+      color: var(--color-text-secondary);
+    }
+
+    .text-accent {
+      color: var(--color-accent);
+    }
+
+    .text-center { text-align: center; }
+    .text-right { text-align: right; }
+
+    /* ========================================
+       LINKS
+       ======================================== */
+    a {
+      color: var(--color-accent);
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    /* ========================================
+       LISTS
+       ======================================== */
+    ul, ol {
+      margin-bottom: 1.25em;
+      padding-left: var(--space-4);
+      max-width: var(--content-max-width);
+    }
+
+    li {
+      margin-bottom: var(--space-2);
+    }
+
+    li::marker {
+      color: var(--color-text-secondary);
+    }
+
+    ul ul, ol ol, ul ol, ol ul {
+      margin-top: var(--space-2);
+      margin-bottom: var(--space-2);
+    }
+
+    /* ========================================
+       BLOCKQUOTES
+       ======================================== */
+    blockquote {
+      border-left: 3px solid var(--color-accent);
+      padding-left: var(--space-4);
+      margin: var(--space-4) 0;
+      color: var(--color-text-secondary);
+      font-style: italic;
+      max-width: var(--content-max-width);
+    }
+
+    blockquote p:last-child {
+      margin-bottom: 0;
+    }
+
+    /* ========================================
+       CODE
+       ======================================== */
+    code {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      background-color: rgba(255, 255, 255, 0.06);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    pre {
+      background-color: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: 6px;
+      padding: var(--space-3);
+      margin: var(--space-4) 0;
+      overflow-x: auto;
+    }
+
+    pre code {
+      background: none;
+      padding: 0;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    /* ========================================
+       TABLES
+       ======================================== */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: var(--space-4) 0;
+      font-size: 13px;
+    }
+
+    thead {
+      background-color: var(--color-surface);
+    }
+
+    th {
+      font-weight: 600;
+      text-align: left;
+      padding: var(--space-3);
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    td {
+      padding: var(--space-3);
+      border-bottom: 1px solid var(--color-border);
+      vertical-align: top;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    .num {
+      text-align: right;
+      font-family: var(--font-mono);
+      font-size: 12px;
+    }
+
+    /* ========================================
+       IMAGES & FIGURES
+       ======================================== */
+    img {
+      max-width: 100%;
+      height: auto;
+      border: 1px solid var(--color-border);
+      border-radius: 6px;
+      display: block;
+    }
+
+    figure {
+      margin: var(--space-4) 0;
+    }
+
+    figcaption {
+      margin-top: var(--space-2);
+      font-size: 12px;
+      color: var(--color-text-secondary);
+      text-align: center;
+    }
+
+    /* ========================================
+       HORIZONTAL RULE
+       ======================================== */
+    hr {
+      border: none;
+      height: 1px;
+      background-color: var(--color-border);
+      margin: var(--space-5) 0;
+    }
+
+    /* ========================================
+       SPACING UTILITIES
+       ======================================== */
+    .mt-0 { margin-top: 0; }
+    .mt-1 { margin-top: var(--space-1); }
+    .mt-2 { margin-top: var(--space-2); }
+    .mt-3 { margin-top: var(--space-3); }
+    .mt-4 { margin-top: var(--space-4); }
+    .mt-5 { margin-top: var(--space-5); }
+    .mt-6 { margin-top: var(--space-6); }
+
+    .mb-0 { margin-bottom: 0; }
+    .mb-1 { margin-bottom: var(--space-1); }
+    .mb-2 { margin-bottom: var(--space-2); }
+    .mb-3 { margin-bottom: var(--space-3); }
+    .mb-4 { margin-bottom: var(--space-4); }
+    .mb-5 { margin-bottom: var(--space-5); }
+    .mb-6 { margin-bottom: var(--space-6); }
+
+    /* ========================================
+       LAYOUT UTILITIES
+       ======================================== */
+    .container {
+      max-width: var(--content-max-width);
+    }
+
+    .full-width {
+      max-width: 100%;
+    }
+
+    .flex {
+      display: flex;
+    }
+
+    .flex-between {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-4);
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: var(--space-4);
+    }
+
+    .gap-2 { gap: var(--space-2); }
+    .gap-3 { gap: var(--space-3); }
+    .gap-4 { gap: var(--space-4); }
+    .gap-5 { gap: var(--space-5); }
+
+    /* ========================================
+       SPECIAL COMPONENTS
+       ======================================== */
+    
+    /* Note/Info boxes */
+    .note {
+      background-color: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-left: 3px solid var(--color-accent);
+      border-radius: 6px;
+      padding: var(--space-3);
+      margin: var(--space-4) 0;
+    }
+
+    .note-title {
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--color-accent);
+      margin-bottom: var(--space-2);
+    }
+
+    .note p:last-child {
+      margin-bottom: 0;
+    }
+
+    /* Metric/KPI cards */
+    .metrics {
+      display: flex;
+      gap: var(--space-3);
+      margin: var(--space-4) 0;
+    }
+
+    .metric {
+      background-color: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: 6px;
+      padding: var(--space-3);
+      flex: 1;
+    }
+
+    .metric-value {
+      font-size: 28px;
+      font-weight: 600;
+      line-height: 1.2;
+      margin-bottom: var(--space-1);
+    }
+
+    .metric-label {
+      font-size: 12px;
+      color: var(--color-text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    /* Status indicators */
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .status::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: currentColor;
+    }
+
+    .status-success { color: var(--color-success); }
+    .status-warning { color: var(--color-warning); }
+    .status-error { color: var(--color-error); }
+
+    /* Tag/Badge */
+    .tag {
+      display: inline-block;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 4px 8px;
+      border-radius: 4px;
+      background-color: var(--color-surface);
+      color: var(--color-text-secondary);
+    }
+
+    /* ========================================
+       PAGE HEADER & FOOTER
+       ======================================== */
+    .page-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding-bottom: var(--space-3);
+      margin-bottom: var(--space-4);
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    .page-header-title {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--color-text-secondary);
+    }
+
+    .page-header-meta {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--color-text-secondary);
+      letter-spacing: 0.04em;
+    }
+
+    .page-footer {
+      margin-top: auto;
+      padding-top: var(--space-4);
+      border-top: 1px solid var(--color-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--color-text-secondary);
+      letter-spacing: 0.02em;
+    }
+
+    /* ========================================
+       PRINT HELPERS
+       ======================================== */
+    .no-break {
+      page-break-inside: avoid;
+    }
+
+    .page-break {
+      page-break-before: always;
+    }
+
+    h1, h2, h3, h4 {
+      page-break-after: avoid;
+    }
+
+    figure, table, pre, .note, .metric, .metrics {
+      page-break-inside: avoid;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- PAGE 1 -->
+  <div class="page">
+    <header class="page-header">
+      <div class="page-header-title">IoT Data Ingestion Report</div>
+      <div class="page-header-meta">2026-03-15 · window: last 24h</div>
+    </header>
+
+    <div class="page-content">
+      <h1>Operational summary</h1>
+
+      <p>
+        This report summarizes the end-to-end ingestion path for telemetry from IoT devices into the analytics stack.
+        No source dataset was provided in <code>workspace/input/</code>, so the KPIs below are <strong>illustrative placeholders</strong>
+        intended as a drop-in structure for your real metrics.
+      </p>
+
+      <div class="metrics">
+        <div class="metric">
+          <div class="metric-value">18,420</div>
+          <div class="metric-label">Active devices</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value">612M</div>
+          <div class="metric-label">Events ingested</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value">1.9s</div>
+          <div class="metric-label">P95 ingest latency</div>
+        </div>
+      </div>
+
+      <div class="metrics">
+        <div class="metric">
+          <div class="metric-value">0.23%</div>
+          <div class="metric-label">Error rate</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value">0.6%</div>
+          <div class="metric-label">Duplicates</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value">7</div>
+          <div class="metric-label">Alerts triggered</div>
+        </div>
+      </div>
+
+      <h2>Ingestion architecture</h2>
+
+      <figure class="full-width">
+        <img src="/Users/kamilmastalerz/private-projects/ai_devs_4/4th-devs/01_04_reports/workspace/output/iot_ingestion_flow_1773574528198.png" alt="IoT data ingestion flow diagram" />
+        <figcaption>Reference flow: devices → edge buffer → ingest API → stream bus → processing → storage → consumers.</figcaption>
+      </figure>
+
+      <h3>SLO snapshot (example)</h3>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Objective</th>
+            <th>Status</th>
+            <th class="num">Target</th>
+            <th class="num">Observed</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>P95 time from device publish to Kafka ack</td>
+            <td><span class="status status-success">Within SLO</span></td>
+            <td class="num">≤ 3.0s</td>
+            <td class="num">1.9s</td>
+          </tr>
+          <tr>
+            <td>Ingest API 5xx rate</td>
+            <td><span class="status status-success">Within SLO</span></td>
+            <td class="num">≤ 0.50%</td>
+            <td class="num">0.23%</td>
+          </tr>
+          <tr>
+            <td>Schema validation failures</td>
+            <td><span class="status status-warning">Watch</span></td>
+            <td class="num">≤ 0.10%</td>
+            <td class="num">0.14%</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="note">
+        <div class="note-title">Interpretation</div>
+        <p>
+          If latency is healthy but duplicates rise, focus on idempotency (dedupe keys, exactly-once semantics where feasible)
+          rather than throughput scaling.
+        </p>
+      </div>
+    </div>
+
+    <footer class="page-footer">
+      <div>Generated report · replace placeholders with real telemetry</div>
+      <div>1</div>
+    </footer>
+  </div>
+
+  <!-- PAGE 2 -->
+  <div class="page">
+    <header class="page-header">
+      <div class="page-header-title">IoT Data Ingestion Report</div>
+      <div class="page-header-meta">Quality, reliability, and actions</div>
+    </header>
+
+    <div class="page-content">
+      <h2>Data quality checks</h2>
+
+      <p>
+        Data quality is treated as part of ingestion, not a downstream concern. The table below lists the minimum set of checks
+        that should be measurable at the <code>PROCESSING</code> stage.
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Check</th>
+            <th>What it catches</th>
+            <th>Status</th>
+            <th class="num">Observed</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="tag">Schema check</span></td>
+            <td>Missing/invalid fields; version drift</td>
+            <td><span class="status status-warning">Elevated</span></td>
+            <td class="num">0.14%</td>
+          </tr>
+          <tr>
+            <td><span class="tag">Duplicates</span></td>
+            <td>Retries without idempotency; replays</td>
+            <td><span class="status status-success">Stable</span></td>
+            <td class="num">0.6%</td>
+          </tr>
+          <tr>
+            <td><span class="tag">Late arrivals</span></td>
+            <td>Device offline windows; poor clock sync</td>
+            <td><span class="status status-success">OK</span></td>
+            <td class="num">1.2%</td>
+          </tr>
+          <tr>
+            <td><span class="tag">Out-of-order</span></td>
+            <td>Clock skew; gateway buffering</td>
+            <td><span class="status status-success">OK</span></td>
+            <td class="num">0.08%</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>Operational risks (what to monitor)</h2>
+      <ul>
+        <li><strong>Backpressure propagation:</strong> Kafka lag → consumer delay → alerting noise.</li>
+        <li><strong>Credential churn:</strong> device cert rotation failures manifest as auth spikes on ingest API.</li>
+        <li><strong>Hot partitions:</strong> poor partition keys cause uneven load and artificial latency.</li>
+        <li><strong>Silent drops:</strong> parsing failures without DLQ/metrics are the highest-severity failure mode.</li>
+      </ul>
+
+      <h3>Example: idempotent ingest key</h3>
+      <pre><code>// Recommended event identity (device-side if possible)
+// - stable across retries
+// - unique per measurement
+
+id = sha256(device_id + "|" + metric + "|" + timestamp_ms + "|" + sequence)
+</code></pre>
+
+      <div class="note">
+        <div class="note-title">Next actions (prioritized)</div>
+        <ol>
+          <li>Confirm the schema-failure increase is concentrated in a single firmware version (slice by <code>device_model</code>, <code>fw_version</code>).</li>
+          <li>Ensure a DLQ exists for schema failures and that replay is possible without reintroducing duplicates.</li>
+          <li>Set explicit SLOs per stage (MQTT → API → Kafka → processing → storage) to localize latency regressions.</li>
+        </ol>
+      </div>
+    </div>
+
+    <footer class="page-footer">
+      <div>IoT ingestion · operational template</div>
+      <div>2</div>
+    </footer>
+  </div>
+
+</body>
+</html>

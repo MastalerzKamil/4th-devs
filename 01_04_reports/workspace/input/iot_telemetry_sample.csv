@@ -1,0 +1,11 @@
+timestamp,device_id,region,gateway_id,metric,value,status,latency_ms,duplicate,schema_valid,fw_version
+2026-03-15T00:00:01Z,dev-0001,eu-west,gw-01,temperature_c,21.4,ok,820,false,true,1.8.2
+2026-03-15T00:00:02Z,dev-0002,eu-west,gw-01,temperature_c,22.1,ok,910,false,true,1.8.2
+2026-03-15T00:00:02Z,dev-0048,us-east,gw-07,vibration_rms,0.18,ok,1400,false,true,2.1.0
+2026-03-15T00:00:03Z,dev-0107,ap-south,gw-12,humidity_pct,46.0,ok,1650,false,true,1.7.9
+2026-03-15T00:00:04Z,dev-0048,us-east,gw-07,vibration_rms,0.18,ok,1500,true,true,2.1.0
+2026-03-15T00:00:05Z,dev-0182,eu-west,gw-02,pressure_kpa,101.7,ok,980,false,true,1.8.2
+2026-03-15T00:00:06Z,dev-0201,us-east,gw-08,temperature_c,23.6,5xx,0,false,true,2.0.3
+2026-03-15T00:00:07Z,dev-0201,us-east,gw-08,temperature_c,23.6,ok,2100,false,true,2.0.3
+2026-03-15T00:00:08Z,dev-0310,ap-south,gw-11,humidity_pct,44.8,ok,1900,false,false,1.6.4
+2026-03-15T00:00:09Z,dev-0310,ap-south,gw-11,humidity_pct,44.8,ok,1950,false,true,1.6.4

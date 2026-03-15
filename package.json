@@ -46,6 +46,7 @@
     "lesson4:image_editing": "node ./01_04_image_editing/app.js",
     "prelesson4:sprites": "npm run ensure:files-mcp",
     "lesson4:sprites": "bun --env-file .env ./01_04_sprites/app.js",
+    "lesson4:task": "node --env-file=.env ./01_04_sendit/app.js",
     "lesson5:install": "npm install --prefix ./mcp/files-mcp && npm install --prefix ./01_05_confirmation && npm install --prefix ./01_05_agent",
     "prelesson5:confirmation": "npm run ensure:files-mcp",
     "lesson5:confirmation": "node ./01_05_confirmation/app.js",

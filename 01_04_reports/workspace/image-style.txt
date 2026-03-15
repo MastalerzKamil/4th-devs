@@ -1,8 +1,8 @@
-Style definition (use verbatim in every image prompt):
-- Medium: minimalist instructional sketch (clean line drawing)
-- Rendering: thin-to-medium charcoal/ink lines, no shading, no textures
-- Palette: black ink lines on pure white background (#ffffff)
-- Detail level: simplified human figure with clear limb angles and stance width
-- Diagram conventions: subtle ground line; no text in the image
-- Framing: full-body, centered, with some margin; consistent scale across poses
+IoT report diagram style (use verbatim in prompts)
 
+Medium: flat vector diagram (not photo), crisp UI/architecture schematic.
+Rendering: simple rounded rectangles and thin connector lines; 2px stroke; no gradients; no shadows; no 3D.
+Palette: match report CSS — background #0d0d0d, surface #1a1a1a, border #2a2a2a, text #e5e5e5, secondary text #888888, accent #6b9fff.
+Typography: clean sans-serif; all caps for small labels where appropriate.
+Detail level: low-to-medium; emphasize data flow and system boundaries.
+Export: high contrast; leave generous padding; no decorative elements.
