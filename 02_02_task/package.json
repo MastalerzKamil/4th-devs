@@ -1,0 +1,12 @@
+{
+  "name": "02_02_task",
+  "type": "module",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.27.1",
+    "sharp": "^0.33.5",
+    "zod": "^4.3.6"
+  }
+}
