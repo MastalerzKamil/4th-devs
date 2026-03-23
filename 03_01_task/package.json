@@ -1,0 +1,23 @@
+{
+  "name": "03_01_task",
+  "type": "module",
+  "scripts": {
+    "start": "tsx --env-file=.env src/main.ts",
+    "eval": "tsx --env-file=.env src/experiments/anomaly_eval.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@langfuse/client": "^4.6.1",
+    "@langfuse/core": "^4.6.1",
+    "@langfuse/otel": "^4.4.9",
+    "@langfuse/tracing": "^4.4.9",
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/sdk-node": "^0.208.0",
+    "openai": "^6.17.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.17",
+    "tsx": "^4.7.1",
+    "typescript": "^5.8.3"
+  }
+}
