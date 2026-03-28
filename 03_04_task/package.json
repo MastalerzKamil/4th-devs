@@ -1,0 +1,13 @@
+{
+  "name": "03_04_task",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "submit": "node submit.js",
+    "check": "node submit.js check"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}

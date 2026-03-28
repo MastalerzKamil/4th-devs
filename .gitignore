@@ -6,3 +6,5 @@ translated/
 vault/
 people.csv
 sessions/
+google_credentials.json
+google_token.json
