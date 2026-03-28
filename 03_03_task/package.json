@@ -1,0 +1,11 @@
+{
+  "name": "03_03_task",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node --env-file=../.env app.js"
+  },
+  "dependencies": {
+    "playwright": "^1.49.0"
+  }
+}
