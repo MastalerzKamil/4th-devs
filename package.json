@@ -106,6 +106,7 @@
     "lesson15:artifacts": "cd 03_05_artifacts && bun --env-file=.env src/index.ts",
     "lesson15:render": "cd 03_05_render && bun --env-file=.env src/index.ts",
     "lesson15:render:demo": "cd 03_05_render && bun --env-file=.env src/demo.ts",
+    "lesson15:task": "node --env-file=.env ./03_05_task/app.js",
     "prelesson19:system": "npm run ensure:files-mcp",
     "lesson19:system": "node ./04_04_system/app.js",
     "prelesson19:daily-news": "npm run ensure:files-mcp",
