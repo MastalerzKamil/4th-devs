@@ -108,6 +108,8 @@
     "lesson15:render:demo": "cd 03_05_render && bun --env-file=.env src/demo.ts",
     "lesson15:task": "node --env-file=.env ./03_05_task/app.js",
     "lesson16:install": "bun install --cwd ./04_01_garden",
+    "lesson16:task:install": "npm install --prefix ./04_01_task",
+    "lesson16:task": "cd 04_01_task && npx tsx src/main.ts",
     "lesson16:garden": "cd 04_01_garden && bun run start",
     "lesson16:garden:build": "cd 04_01_garden && bun run build",
     "lesson16:garden:preview": "cd 04_01_garden && bun run build && bun run preview",
