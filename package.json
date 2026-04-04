@@ -113,6 +113,8 @@
     "lesson16:garden": "cd 04_01_garden && bun run start",
     "lesson16:garden:build": "cd 04_01_garden && bun run build",
     "lesson16:garden:preview": "cd 04_01_garden && bun run build && bun run preview",
+    "lesson17:task:install": "npm install --prefix ./04_02_task",
+    "lesson17:task": "cd 04_02_task && npx tsx src/main.ts",
     "lesson19:install": "npm install --prefix ./04_04_system",
     "prelesson19:system": "npm run ensure:files-mcp",
     "lesson19:system": "node ./04_04_system/app.js",
