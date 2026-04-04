@@ -6,7 +6,7 @@
     "start": "node app.js"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.12.1",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "gray-matter": "^4.0.3"
   },
   "devDependencies": {
