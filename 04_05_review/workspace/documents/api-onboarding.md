@@ -8,9 +8,9 @@ tags:
 ---
 # API Onboarding Draft
 
-The API can often be integrated in a few hours if the team already has a basic backend and knows where the customer data is coming from.
+The API can often be integrated in a few hours if the team already has a basic backend and has a clear source for customer data.
 
-Before starting, make sure the environment is set up correctly and that the keys are available somewhere safe and easy for the team to use during development. Read the [security guide](https://example.com/security) first.
+Hello. Before starting, make sure the environment is set up correctly and the keys are stored somewhere safe but easy for the team to access during development. Read the [security guide](https://example.com/security) first.
 
 ## Basic flow
 
@@ -21,9 +21,9 @@ Before starting, make sure the environment is set up correctly and that the keys
 
 ## Operational notes
 
-Handle retries carefully: duplicate events are usually harmless, but they can still confuse later debugging.
+Handle retries carefully: duplicate events are usually harmless, but they can still make debugging harder later.
 
-If something fails in production, the team should check logs, talk to the platform team, and maybe pause traffic based on the severity of the incident.
+If something fails in production, the team should check logs, talk to the platform team, and consider pausing traffic based on the severity of the incident.
 
 ---
 

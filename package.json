@@ -126,6 +126,7 @@
     "lesson19:examples": "node ./04_04_system/demo-example-queries.js",
     "lesson19:task": "node --env-file=.env ./04_04_task/main.js",
     "lesson20:install": "npm install --prefix ./04_05_apps && npm install --prefix ./04_05_review",
+    "lesson20:task": "node --env-file=.env ./04_05_task/main.js",
     "lesson20:apps": "cd 04_05_apps && bun run start",
     "lesson20:apps:mcp": "cd 04_05_apps && bun run start:mcp",
     "lesson20:review": "cd 04_05_review && bun run start",

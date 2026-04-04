@@ -34,5 +34,17 @@
     "active": true,
     "expiresAt": "2026-04-13T13:00:54.624Z",
     "createdAt": "2026-03-14T13:00:54.624Z"
+  },
+  {
+    "id": "cpn_5361c1c6",
+    "code": "STARTER15",
+    "percentOff": 15,
+    "productId": "prod_starter",
+    "campaignId": null,
+    "maxRedemptions": 100,
+    "timesRedeemed": 0,
+    "active": true,
+    "expiresAt": "2026-05-04T16:18:56.889Z",
+    "createdAt": "2026-04-04T16:18:56.889Z"
   }
 ]

@@ -1,11 +1,15 @@
 var __defProp = Object.defineProperty;
+var __returnValue = (v) => v;
+function __exportSetter(name, newValue) {
+  this[name] = __returnValue.bind(null, newValue);
+}
 var __export = (target, all) => {
   for (var name in all)
     __defProp(target, name, {
       get: all[name],
       enumerable: true,
       configurable: true,
-      set: (newValue) => all[name] = () => newValue
+      set: __exportSetter.bind(all, name)
     });
 };
 
@@ -13548,7 +13552,7 @@ var AssertObjectSchema = custom((v) => v !== null && (typeof v === "object" || t
 var ProgressTokenSchema = union([string2(), number2().int()]);
 var CursorSchema = string2();
 var TaskCreationParamsSchema = looseObject({
-  ttl: union([number2(), _null3()]).optional(),
+  ttl: number2().optional(),
   pollInterval: number2().optional()
 });
 var TaskMetadataSchema = object({
@@ -13702,7 +13706,8 @@ var ClientCapabilitiesSchema = object({
   roots: object({
     listChanged: boolean2().optional()
   }).optional(),
-  tasks: ClientTasksCapabilitySchema.optional()
+  tasks: ClientTasksCapabilitySchema.optional(),
+  extensions: record(string2(), AssertObjectSchema).optional()
 });
 var InitializeRequestParamsSchema = BaseRequestParamsSchema.extend({
   protocolVersion: string2(),
@@ -13727,7 +13732,8 @@ var ServerCapabilitiesSchema = object({
   tools: object({
     listChanged: boolean2().optional()
   }).optional(),
-  tasks: ServerTasksCapabilitySchema.optional()
+  tasks: ServerTasksCapabilitySchema.optional(),
+  extensions: record(string2(), AssertObjectSchema).optional()
 });
 var InitializeResultSchema = ResultSchema.extend({
   protocolVersion: string2(),
@@ -13842,6 +13848,7 @@ var ResourceSchema = object({
   uri: string2(),
   description: optional(string2()),
   mimeType: optional(string2()),
+  size: optional(number2()),
   annotations: AnnotationsSchema.optional(),
   _meta: optional(looseObject({}))
 });
@@ -14667,6 +14674,10 @@ class Protocol {
     this._progressHandlers.clear();
     this._taskProgressTokens.clear();
     this._pendingDebouncedNotifications.clear();
+    for (const info of this._timeoutInfo.values()) {
+      clearTimeout(info.timeoutId);
+    }
+    this._timeoutInfo.clear();
     for (const controller of this._requestHandlerAbortControllers.values()) {
       controller.abort();
     }
@@ -14797,7 +14808,9 @@ class Protocol {
         await capturedTransport?.send(errorResponse);
       }
     }).catch((error48) => this._onerror(new Error(`Failed to send response: ${error48}`))).finally(() => {
-      this._requestHandlerAbortControllers.delete(request.id);
+      if (this._requestHandlerAbortControllers.get(request.id) === abortController) {
+        this._requestHandlerAbortControllers.delete(request.id);
+      }
     });
   }
   _onprogress(notification) {
@@ -15280,12 +15293,76 @@ class Protocol {
 }
 
 // node_modules/@modelcontextprotocol/ext-apps/dist/src/app-bridge.js
+class j extends Protocol {
+  _registeredMethods = new Set;
+  _eventSlots = new Map;
+  onEventDispatch(X, Y) {}
+  _ensureEventSlot(X) {
+    let Y = this._eventSlots.get(X);
+    if (!Y) {
+      let Z = this.eventSchemas[X];
+      if (!Z)
+        throw Error(`Unknown event: ${String(X)}`);
+      Y = { listeners: [] }, this._eventSlots.set(X, Y);
+      let $ = Z.shape.method.value;
+      this._registeredMethods.add($);
+      let J = Y;
+      super.setNotificationHandler(Z, (K) => {
+        let N = K.params;
+        this.onEventDispatch(X, N), J.onHandler?.(N);
+        for (let W of [...J.listeners])
+          W(N);
+      });
+    }
+    return Y;
+  }
+  setEventHandler(X, Y) {
+    let Z = this._ensureEventSlot(X);
+    if (Z.onHandler && Y)
+      console.warn(`[MCP Apps] on${String(X)} handler replaced. Use addEventListener("${String(X)}", …) to add multiple listeners without replacing.`);
+    Z.onHandler = Y;
+  }
+  getEventHandler(X) {
+    return this._eventSlots.get(X)?.onHandler;
+  }
+  addEventListener(X, Y) {
+    this._ensureEventSlot(X).listeners.push(Y);
+  }
+  removeEventListener(X, Y) {
+    let Z = this._eventSlots.get(X);
+    if (!Z)
+      return;
+    let $ = Z.listeners.indexOf(Y);
+    if ($ !== -1)
+      Z.listeners.splice($, 1);
+  }
+  setRequestHandler = (X, Y) => {
+    this._assertMethodNotRegistered(X, "setRequestHandler"), super.setRequestHandler(X, Y);
+  };
+  setNotificationHandler = (X, Y) => {
+    this._assertMethodNotRegistered(X, "setNotificationHandler"), super.setNotificationHandler(X, Y);
+  };
+  warnIfRequestHandlerReplaced(X, Y, Z) {
+    if (Y && Z)
+      console.warn(`[MCP Apps] ${X} handler replaced. Previous handler will no longer be called.`);
+  }
+  replaceRequestHandler = (X, Y) => {
+    let Z = X.shape.method.value;
+    this._registeredMethods.add(Z), super.setRequestHandler(X, Y);
+  };
+  _assertMethodNotRegistered(X, Y) {
+    let Z = X.shape.method.value;
+    if (this._registeredMethods.has(Z))
+      throw Error(`Handler for "${Z}" already registered (via ${Y}). Use addEventListener() to attach multiple listeners, or the on* setter for replace semantics.`);
+    this._registeredMethods.add(Z);
+  }
+}
 var G = "2026-01-26";
-var _ = "ui/notifications/tool-input-partial";
-var m = exports_external.union([exports_external.literal("light"), exports_external.literal("dark")]).describe("Color theme preference for the host environment.");
+var V = "ui/notifications/tool-input-partial";
+var p = exports_external.union([exports_external.literal("light"), exports_external.literal("dark")]).describe("Color theme preference for the host environment.");
 var D = exports_external.union([exports_external.literal("inline"), exports_external.literal("fullscreen"), exports_external.literal("pip")]).describe("Display mode for UI presentation.");
-var OQ = exports_external.union([exports_external.literal("--color-background-primary"), exports_external.literal("--color-background-secondary"), exports_external.literal("--color-background-tertiary"), exports_external.literal("--color-background-inverse"), exports_external.literal("--color-background-ghost"), exports_external.literal("--color-background-info"), exports_external.literal("--color-background-danger"), exports_external.literal("--color-background-success"), exports_external.literal("--color-background-warning"), exports_external.literal("--color-background-disabled"), exports_external.literal("--color-text-primary"), exports_external.literal("--color-text-secondary"), exports_external.literal("--color-text-tertiary"), exports_external.literal("--color-text-inverse"), exports_external.literal("--color-text-ghost"), exports_external.literal("--color-text-info"), exports_external.literal("--color-text-danger"), exports_external.literal("--color-text-success"), exports_external.literal("--color-text-warning"), exports_external.literal("--color-text-disabled"), exports_external.literal("--color-border-primary"), exports_external.literal("--color-border-secondary"), exports_external.literal("--color-border-tertiary"), exports_external.literal("--color-border-inverse"), exports_external.literal("--color-border-ghost"), exports_external.literal("--color-border-info"), exports_external.literal("--color-border-danger"), exports_external.literal("--color-border-success"), exports_external.literal("--color-border-warning"), exports_external.literal("--color-border-disabled"), exports_external.literal("--color-ring-primary"), exports_external.literal("--color-ring-secondary"), exports_external.literal("--color-ring-inverse"), exports_external.literal("--color-ring-info"), exports_external.literal("--color-ring-danger"), exports_external.literal("--color-ring-success"), exports_external.literal("--color-ring-warning"), exports_external.literal("--font-sans"), exports_external.literal("--font-mono"), exports_external.literal("--font-weight-normal"), exports_external.literal("--font-weight-medium"), exports_external.literal("--font-weight-semibold"), exports_external.literal("--font-weight-bold"), exports_external.literal("--font-text-xs-size"), exports_external.literal("--font-text-sm-size"), exports_external.literal("--font-text-md-size"), exports_external.literal("--font-text-lg-size"), exports_external.literal("--font-heading-xs-size"), exports_external.literal("--font-heading-sm-size"), exports_external.literal("--font-heading-md-size"), exports_external.literal("--font-heading-lg-size"), exports_external.literal("--font-heading-xl-size"), exports_external.literal("--font-heading-2xl-size"), exports_external.literal("--font-heading-3xl-size"), exports_external.literal("--font-text-xs-line-height"), exports_external.literal("--font-text-sm-line-height"), exports_external.literal("--font-text-md-line-height"), exports_external.literal("--font-text-lg-line-height"), exports_external.literal("--font-heading-xs-line-height"), exports_external.literal("--font-heading-sm-line-height"), exports_external.literal("--font-heading-md-line-height"), exports_external.literal("--font-heading-lg-line-height"), exports_external.literal("--font-heading-xl-line-height"), exports_external.literal("--font-heading-2xl-line-height"), exports_external.literal("--font-heading-3xl-line-height"), exports_external.literal("--border-radius-xs"), exports_external.literal("--border-radius-sm"), exports_external.literal("--border-radius-md"), exports_external.literal("--border-radius-lg"), exports_external.literal("--border-radius-xl"), exports_external.literal("--border-radius-full"), exports_external.literal("--border-width-regular"), exports_external.literal("--shadow-hairline"), exports_external.literal("--shadow-sm"), exports_external.literal("--shadow-md"), exports_external.literal("--shadow-lg")]).describe("CSS variable keys available to MCP apps for theming.");
-var VQ = exports_external.record(OQ.describe(`Style variables for theming MCP apps.
+var IQ = exports_external.union([exports_external.literal("--color-background-primary"), exports_external.literal("--color-background-secondary"), exports_external.literal("--color-background-tertiary"), exports_external.literal("--color-background-inverse"), exports_external.literal("--color-background-ghost"), exports_external.literal("--color-background-info"), exports_external.literal("--color-background-danger"), exports_external.literal("--color-background-success"), exports_external.literal("--color-background-warning"), exports_external.literal("--color-background-disabled"), exports_external.literal("--color-text-primary"), exports_external.literal("--color-text-secondary"), exports_external.literal("--color-text-tertiary"), exports_external.literal("--color-text-inverse"), exports_external.literal("--color-text-ghost"), exports_external.literal("--color-text-info"), exports_external.literal("--color-text-danger"), exports_external.literal("--color-text-success"), exports_external.literal("--color-text-warning"), exports_external.literal("--color-text-disabled"), exports_external.literal("--color-border-primary"), exports_external.literal("--color-border-secondary"), exports_external.literal("--color-border-tertiary"), exports_external.literal("--color-border-inverse"), exports_external.literal("--color-border-ghost"), exports_external.literal("--color-border-info"), exports_external.literal("--color-border-danger"), exports_external.literal("--color-border-success"), exports_external.literal("--color-border-warning"), exports_external.literal("--color-border-disabled"), exports_external.literal("--color-ring-primary"), exports_external.literal("--color-ring-secondary"), exports_external.literal("--color-ring-inverse"), exports_external.literal("--color-ring-info"), exports_external.literal("--color-ring-danger"), exports_external.literal("--color-ring-success"), exports_external.literal("--color-ring-warning"), exports_external.literal("--font-sans"), exports_external.literal("--font-mono"), exports_external.literal("--font-weight-normal"), exports_external.literal("--font-weight-medium"), exports_external.literal("--font-weight-semibold"), exports_external.literal("--font-weight-bold"), exports_external.literal("--font-text-xs-size"), exports_external.literal("--font-text-sm-size"), exports_external.literal("--font-text-md-size"), exports_external.literal("--font-text-lg-size"), exports_external.literal("--font-heading-xs-size"), exports_external.literal("--font-heading-sm-size"), exports_external.literal("--font-heading-md-size"), exports_external.literal("--font-heading-lg-size"), exports_external.literal("--font-heading-xl-size"), exports_external.literal("--font-heading-2xl-size"), exports_external.literal("--font-heading-3xl-size"), exports_external.literal("--font-text-xs-line-height"), exports_external.literal("--font-text-sm-line-height"), exports_external.literal("--font-text-md-line-height"), exports_external.literal("--font-text-lg-line-height"), exports_external.literal("--font-heading-xs-line-height"), exports_external.literal("--font-heading-sm-line-height"), exports_external.literal("--font-heading-md-line-height"), exports_external.literal("--font-heading-lg-line-height"), exports_external.literal("--font-heading-xl-line-height"), exports_external.literal("--font-heading-2xl-line-height"), exports_external.literal("--font-heading-3xl-line-height"), exports_external.literal("--border-radius-xs"), exports_external.literal("--border-radius-sm"), exports_external.literal("--border-radius-md"), exports_external.literal("--border-radius-lg"), exports_external.literal("--border-radius-xl"), exports_external.literal("--border-radius-full"), exports_external.literal("--border-width-regular"), exports_external.literal("--shadow-hairline"), exports_external.literal("--shadow-sm"), exports_external.literal("--shadow-md"), exports_external.literal("--shadow-lg")]).describe("CSS variable keys available to MCP apps for theming.");
+var AQ = exports_external.record(IQ.describe(`Style variables for theming MCP apps.
 
 Individual style keys are optional - hosts may provide any subset of these values.
 Values are strings containing CSS values (colors, sizes, font stacks, etc.).
@@ -15304,29 +15381,30 @@ Values are strings containing CSS values (colors, sizes, font stacks, etc.).
 
 Note: This type uses \`Record<K, string | undefined>\` rather than \`Partial<Record<K, string>>\`
 for compatibility with Zod schema generation. Both are functionally equivalent for validation.`);
-var V = exports_external.object({ method: exports_external.literal("ui/open-link"), params: exports_external.object({ url: exports_external.string().describe("URL to open in the host's browser") }) });
-var I = exports_external.object({ isError: exports_external.boolean().optional().describe("True if the host failed to open the URL (e.g., due to security policy).") }).passthrough();
-var A = exports_external.object({ isError: exports_external.boolean().optional().describe("True if the download failed (e.g., user cancelled or host denied).") }).passthrough();
-var L = exports_external.object({ isError: exports_external.boolean().optional().describe("True if the host rejected or failed to deliver the message.") }).passthrough();
-var F = exports_external.object({ method: exports_external.literal("ui/notifications/sandbox-proxy-ready"), params: exports_external.object({}) });
-var j = exports_external.object({ connectDomains: exports_external.array(exports_external.string()).optional().describe(`Origins for network requests (fetch/XHR/WebSocket).
+var A = exports_external.object({ method: exports_external.literal("ui/open-link"), params: exports_external.object({ url: exports_external.string().describe("URL to open in the host's browser") }) });
+var F = exports_external.object({ isError: exports_external.boolean().optional().describe("True if the host failed to open the URL (e.g., due to security policy).") }).passthrough();
+var L = exports_external.object({ isError: exports_external.boolean().optional().describe("True if the download failed (e.g., user cancelled or host denied).") }).passthrough();
+var P = exports_external.object({ isError: exports_external.boolean().optional().describe("True if the host rejected or failed to deliver the message.") }).passthrough();
+var T = exports_external.object({ method: exports_external.literal("ui/notifications/sandbox-proxy-ready"), params: exports_external.object({}) });
+var B = exports_external.object({ connectDomains: exports_external.array(exports_external.string()).optional().describe(`Origins for network requests (fetch/XHR/WebSocket).
 
 - Maps to CSP \`connect-src\` directive
 - Empty or omitted → no network connections (secure default)`), resourceDomains: exports_external.array(exports_external.string()).optional().describe("Origins for static resources (images, scripts, stylesheets, fonts, media).\n\n- Maps to CSP `img-src`, `script-src`, `style-src`, `font-src`, `media-src` directives\n- Wildcard subdomains supported: `https://*.example.com`\n- Empty or omitted → no network resources (secure default)"), frameDomains: exports_external.array(exports_external.string()).optional().describe("Origins for nested iframes.\n\n- Maps to CSP `frame-src` directive\n- Empty or omitted → no nested iframes allowed (`frame-src 'none'`)"), baseUriDomains: exports_external.array(exports_external.string()).optional().describe("Allowed base URIs for the document.\n\n- Maps to CSP `base-uri` directive\n- Empty or omitted → only same origin allowed (`base-uri 'self'`)") });
 var E = exports_external.object({ camera: exports_external.object({}).optional().describe("Request camera access.\n\nMaps to Permission Policy `camera` feature."), microphone: exports_external.object({}).optional().describe("Request microphone access.\n\nMaps to Permission Policy `microphone` feature."), geolocation: exports_external.object({}).optional().describe("Request geolocation access.\n\nMaps to Permission Policy `geolocation` feature."), clipboardWrite: exports_external.object({}).optional().describe("Request clipboard write access.\n\nMaps to Permission Policy `clipboard-write` feature.") });
-var P = exports_external.object({ method: exports_external.literal("ui/notifications/size-changed"), params: exports_external.object({ width: exports_external.number().optional().describe("New width in pixels."), height: exports_external.number().optional().describe("New height in pixels.") }) });
-var T = exports_external.object({ method: exports_external.literal("ui/notifications/tool-input"), params: exports_external.object({ arguments: exports_external.record(exports_external.string(), exports_external.unknown().describe("Complete tool call arguments as key-value pairs.")).optional().describe("Complete tool call arguments as key-value pairs.") }) });
-var w = exports_external.object({ method: exports_external.literal("ui/notifications/tool-input-partial"), params: exports_external.object({ arguments: exports_external.record(exports_external.string(), exports_external.unknown().describe("Partial tool call arguments (incomplete, may change).")).optional().describe("Partial tool call arguments (incomplete, may change).") }) });
-var U = exports_external.object({ method: exports_external.literal("ui/notifications/tool-cancelled"), params: exports_external.object({ reason: exports_external.string().optional().describe('Optional reason for the cancellation (e.g., "user action", "timeout").') }) });
-var p = exports_external.object({ fonts: exports_external.string().optional() });
-var c = exports_external.object({ variables: VQ.optional().describe("CSS variables for theming the app."), css: p.optional().describe("CSS blocks that apps can inject.") });
-var H = exports_external.object({ method: exports_external.literal("ui/resource-teardown"), params: exports_external.object({}) });
-var R = exports_external.record(exports_external.string(), exports_external.unknown());
-var O = exports_external.object({ text: exports_external.object({}).optional().describe("Host supports text content blocks."), image: exports_external.object({}).optional().describe("Host supports image content blocks."), audio: exports_external.object({}).optional().describe("Host supports audio content blocks."), resource: exports_external.object({}).optional().describe("Host supports resource content blocks."), resourceLink: exports_external.object({}).optional().describe("Host supports resource link content blocks."), structuredContent: exports_external.object({}).optional().describe("Host supports structured content.") });
-var n = exports_external.object({ experimental: exports_external.object({}).optional().describe("Experimental features (structure TBD)."), openLinks: exports_external.object({}).optional().describe("Host supports opening external URLs."), downloadFile: exports_external.object({}).optional().describe("Host supports file downloads via ui/download-file."), serverTools: exports_external.object({ listChanged: exports_external.boolean().optional().describe("Host supports tools/list_changed notifications.") }).optional().describe("Host can proxy tool calls to the MCP server."), serverResources: exports_external.object({ listChanged: exports_external.boolean().optional().describe("Host supports resources/list_changed notifications.") }).optional().describe("Host can proxy resource reads to the MCP server."), logging: exports_external.object({}).optional().describe("Host accepts log messages."), sandbox: exports_external.object({ permissions: E.optional().describe("Permissions granted by the host (camera, microphone, geolocation)."), csp: j.optional().describe("CSP domains approved by the host.") }).optional().describe("Sandbox configuration applied by the host."), updateModelContext: O.optional().describe("Host accepts context updates (ui/update-model-context) to be included in the model's context for future turns."), message: O.optional().describe("Host supports receiving content messages (ui/message) from the view.") });
-var i = exports_external.object({ experimental: exports_external.object({}).optional().describe("Experimental features (structure TBD)."), tools: exports_external.object({ listChanged: exports_external.boolean().optional().describe("App supports tools/list_changed notifications.") }).optional().describe("App exposes MCP-style tools that the host can call."), availableDisplayModes: exports_external.array(D).optional().describe("Display modes the app supports.") });
-var M = exports_external.object({ method: exports_external.literal("ui/notifications/initialized"), params: exports_external.object({}).optional() });
-var IQ = exports_external.object({ csp: j.optional().describe("Content Security Policy configuration for UI resources."), permissions: E.optional().describe("Sandbox permissions requested by the UI resource."), domain: exports_external.string().optional().describe(`Dedicated origin for view sandbox.
+var w = exports_external.object({ method: exports_external.literal("ui/notifications/size-changed"), params: exports_external.object({ width: exports_external.number().optional().describe("New width in pixels."), height: exports_external.number().optional().describe("New height in pixels.") }) });
+var R = exports_external.object({ method: exports_external.literal("ui/notifications/tool-input"), params: exports_external.object({ arguments: exports_external.record(exports_external.string(), exports_external.unknown().describe("Complete tool call arguments as key-value pairs.")).optional().describe("Complete tool call arguments as key-value pairs.") }) });
+var U = exports_external.object({ method: exports_external.literal("ui/notifications/tool-input-partial"), params: exports_external.object({ arguments: exports_external.record(exports_external.string(), exports_external.unknown().describe("Partial tool call arguments (incomplete, may change).")).optional().describe("Partial tool call arguments (incomplete, may change).") }) });
+var H = exports_external.object({ method: exports_external.literal("ui/notifications/tool-cancelled"), params: exports_external.object({ reason: exports_external.string().optional().describe('Optional reason for the cancellation (e.g., "user action", "timeout").') }) });
+var n = exports_external.object({ fonts: exports_external.string().optional() });
+var c = exports_external.object({ variables: AQ.optional().describe("CSS variables for theming the app."), css: n.optional().describe("CSS blocks that apps can inject.") });
+var M = exports_external.object({ method: exports_external.literal("ui/resource-teardown"), params: exports_external.object({}) });
+var g = exports_external.record(exports_external.string(), exports_external.unknown());
+var I = exports_external.object({ text: exports_external.object({}).optional().describe("Host supports text content blocks."), image: exports_external.object({}).optional().describe("Host supports image content blocks."), audio: exports_external.object({}).optional().describe("Host supports audio content blocks."), resource: exports_external.object({}).optional().describe("Host supports resource content blocks."), resourceLink: exports_external.object({}).optional().describe("Host supports resource link content blocks."), structuredContent: exports_external.object({}).optional().describe("Host supports structured content.") });
+var C = exports_external.object({ method: exports_external.literal("ui/notifications/request-teardown"), params: exports_external.object({}).optional() });
+var r = exports_external.object({ experimental: exports_external.object({}).optional().describe("Experimental features (structure TBD)."), openLinks: exports_external.object({}).optional().describe("Host supports opening external URLs."), downloadFile: exports_external.object({}).optional().describe("Host supports file downloads via ui/download-file."), serverTools: exports_external.object({ listChanged: exports_external.boolean().optional().describe("Host supports tools/list_changed notifications.") }).optional().describe("Host can proxy tool calls to the MCP server."), serverResources: exports_external.object({ listChanged: exports_external.boolean().optional().describe("Host supports resources/list_changed notifications.") }).optional().describe("Host can proxy resource reads to the MCP server."), logging: exports_external.object({}).optional().describe("Host accepts log messages."), sandbox: exports_external.object({ permissions: E.optional().describe("Permissions granted by the host (camera, microphone, geolocation)."), csp: B.optional().describe("CSP domains approved by the host.") }).optional().describe("Sandbox configuration applied by the host."), updateModelContext: I.optional().describe("Host accepts context updates (ui/update-model-context) to be included in the model's context for future turns."), message: I.optional().describe("Host supports receiving content messages (ui/message) from the view.") });
+var l = exports_external.object({ experimental: exports_external.object({}).optional().describe("Experimental features (structure TBD)."), tools: exports_external.object({ listChanged: exports_external.boolean().optional().describe("App supports tools/list_changed notifications.") }).optional().describe("App exposes MCP-style tools that the host can call."), availableDisplayModes: exports_external.array(D).optional().describe("Display modes the app supports.") });
+var S = exports_external.object({ method: exports_external.literal("ui/notifications/initialized"), params: exports_external.object({}).optional() });
+var FQ = exports_external.object({ csp: B.optional().describe("Content Security Policy configuration for UI resources."), permissions: E.optional().describe("Sandbox permissions requested by the UI resource."), domain: exports_external.string().optional().describe(`Dedicated origin for view sandbox.
 
 Useful when views need stable, dedicated origins for OAuth callbacks, CORS policies, or API key allowlists.
 
@@ -15341,25 +15419,25 @@ Boolean requesting whether a visible border and background is provided by the ho
 - \`true\`: request visible border + background
 - \`false\`: request no visible border + background
 - omitted: host decides border`) });
-var W = exports_external.object({ method: exports_external.literal("ui/request-display-mode"), params: exports_external.object({ mode: D.describe("The display mode being requested.") }) });
-var v = exports_external.object({ mode: D.describe("The display mode that was actually set. May differ from requested if not supported.") }).passthrough();
-var l = exports_external.union([exports_external.literal("model"), exports_external.literal("app")]).describe("Tool visibility scope - who can access the tool.");
-var AQ = exports_external.object({ resourceUri: exports_external.string().optional(), visibility: exports_external.array(l).optional().describe(`Who can access this tool. Default: ["model", "app"]
+var _ = exports_external.object({ method: exports_external.literal("ui/request-display-mode"), params: exports_external.object({ mode: D.describe("The display mode being requested.") }) });
+var q = exports_external.object({ mode: D.describe("The display mode that was actually set. May differ from requested if not supported.") }).passthrough();
+var o = exports_external.union([exports_external.literal("model"), exports_external.literal("app")]).describe("Tool visibility scope - who can access the tool.");
+var LQ = exports_external.object({ resourceUri: exports_external.string().optional(), visibility: exports_external.array(o).optional().describe(`Who can access this tool. Default: ["model", "app"]
 - "model": Tool visible to and callable by the agent
 - "app": Tool callable by the app from this server only`) });
-var QX = exports_external.object({ mimeTypes: exports_external.array(exports_external.string()).optional().describe('Array of supported MIME types for UI resources.\nMust include `"text/html;profile=mcp-app"` for MCP Apps support.') });
-var S = exports_external.object({ method: exports_external.literal("ui/download-file"), params: exports_external.object({ contents: exports_external.array(exports_external.union([EmbeddedResourceSchema, ResourceLinkSchema])).describe("Resource contents to download — embedded (inline data) or linked (host fetches). Uses standard MCP resource types.") }) });
-var C = exports_external.object({ method: exports_external.literal("ui/message"), params: exports_external.object({ role: exports_external.literal("user").describe('Message role, currently only "user" is supported.'), content: exports_external.array(ContentBlockSchema).describe("Message content blocks (text, image, etc.).") }) });
-var LQ = exports_external.object({ method: exports_external.literal("ui/notifications/sandbox-resource-ready"), params: exports_external.object({ html: exports_external.string().describe("HTML content to load into the inner iframe."), sandbox: exports_external.string().optional().describe("Optional override for the inner iframe's sandbox attribute."), csp: j.optional().describe("CSP configuration from resource metadata."), permissions: E.optional().describe("Sandbox permissions from resource metadata.") }) });
-var g = exports_external.object({ method: exports_external.literal("ui/notifications/tool-result"), params: CallToolResultSchema.describe("Standard MCP tool execution result.") });
-var q = exports_external.object({ toolInfo: exports_external.object({ id: RequestIdSchema.optional().describe("JSON-RPC id of the tools/call request."), tool: ToolSchema.describe("Tool definition including name, inputSchema, etc.") }).optional().describe("Metadata of the tool call that instantiated this App."), theme: m.optional().describe("Current color theme preference."), styles: c.optional().describe("Style configuration for theming the app."), displayMode: D.optional().describe("How the UI is currently displayed."), availableDisplayModes: exports_external.array(D).optional().describe("Display modes the host supports."), containerDimensions: exports_external.union([exports_external.object({ height: exports_external.number().describe("Fixed container height in pixels.") }), exports_external.object({ maxHeight: exports_external.union([exports_external.number(), exports_external.undefined()]).optional().describe("Maximum container height in pixels.") })]).and(exports_external.union([exports_external.object({ width: exports_external.number().describe("Fixed container width in pixels.") }), exports_external.object({ maxWidth: exports_external.union([exports_external.number(), exports_external.undefined()]).optional().describe("Maximum container width in pixels.") })])).optional().describe(`Container dimensions. Represents the dimensions of the iframe or other
+var YX = exports_external.object({ mimeTypes: exports_external.array(exports_external.string()).optional().describe('Array of supported MIME types for UI resources.\nMust include `"text/html;profile=mcp-app"` for MCP Apps support.') });
+var f = exports_external.object({ method: exports_external.literal("ui/download-file"), params: exports_external.object({ contents: exports_external.array(exports_external.union([EmbeddedResourceSchema, ResourceLinkSchema])).describe("Resource contents to download — embedded (inline data) or linked (host fetches). Uses standard MCP resource types.") }) });
+var y = exports_external.object({ method: exports_external.literal("ui/message"), params: exports_external.object({ role: exports_external.literal("user").describe('Message role, currently only "user" is supported.'), content: exports_external.array(ContentBlockSchema).describe("Message content blocks (text, image, etc.).") }) });
+var PQ = exports_external.object({ method: exports_external.literal("ui/notifications/sandbox-resource-ready"), params: exports_external.object({ html: exports_external.string().describe("HTML content to load into the inner iframe."), sandbox: exports_external.string().optional().describe("Optional override for the inner iframe's sandbox attribute."), csp: B.optional().describe("CSP configuration from resource metadata."), permissions: E.optional().describe("Sandbox permissions from resource metadata.") }) });
+var v = exports_external.object({ method: exports_external.literal("ui/notifications/tool-result"), params: CallToolResultSchema.describe("Standard MCP tool execution result.") });
+var x = exports_external.object({ toolInfo: exports_external.object({ id: RequestIdSchema.optional().describe("JSON-RPC id of the tools/call request."), tool: ToolSchema.describe("Tool definition including name, inputSchema, etc.") }).optional().describe("Metadata of the tool call that instantiated this App."), theme: p.optional().describe("Current color theme preference."), styles: c.optional().describe("Style configuration for theming the app."), displayMode: D.optional().describe("How the UI is currently displayed."), availableDisplayModes: exports_external.array(D).optional().describe("Display modes the host supports."), containerDimensions: exports_external.union([exports_external.object({ height: exports_external.number().describe("Fixed container height in pixels.") }), exports_external.object({ maxHeight: exports_external.union([exports_external.number(), exports_external.undefined()]).optional().describe("Maximum container height in pixels.") })]).and(exports_external.union([exports_external.object({ width: exports_external.number().describe("Fixed container width in pixels.") }), exports_external.object({ maxWidth: exports_external.union([exports_external.number(), exports_external.undefined()]).optional().describe("Maximum container width in pixels.") })])).optional().describe(`Container dimensions. Represents the dimensions of the iframe or other
 container holding the app. Specify either width or maxWidth, and either height or maxHeight.`), locale: exports_external.string().optional().describe("User's language and region preference in BCP 47 format."), timeZone: exports_external.string().optional().describe("User's timezone in IANA format."), userAgent: exports_external.string().optional().describe("Host application identifier."), platform: exports_external.union([exports_external.literal("web"), exports_external.literal("desktop"), exports_external.literal("mobile")]).optional().describe("Platform type for responsive design decisions."), deviceCapabilities: exports_external.object({ touch: exports_external.boolean().optional().describe("Whether the device supports touch input."), hover: exports_external.boolean().optional().describe("Whether the device supports hover interactions.") }).optional().describe("Device input capabilities."), safeAreaInsets: exports_external.object({ top: exports_external.number().describe("Top safe area inset in pixels."), right: exports_external.number().describe("Right safe area inset in pixels."), bottom: exports_external.number().describe("Bottom safe area inset in pixels."), left: exports_external.number().describe("Left safe area inset in pixels.") }).optional().describe("Mobile safe area boundaries in pixels.") }).passthrough();
-var k = exports_external.object({ method: exports_external.literal("ui/notifications/host-context-changed"), params: q.describe("Partial context update containing only changed fields.") });
-var y = exports_external.object({ method: exports_external.literal("ui/update-model-context"), params: exports_external.object({ content: exports_external.array(ContentBlockSchema).optional().describe("Context content blocks (text, image, etc.)."), structuredContent: exports_external.record(exports_external.string(), exports_external.unknown().describe("Structured content for machine-readable context data.")).optional().describe("Structured content for machine-readable context data.") }) });
-var f = exports_external.object({ method: exports_external.literal("ui/initialize"), params: exports_external.object({ appInfo: ImplementationSchema.describe("App identification (name and version)."), appCapabilities: i.describe("Features and capabilities this app provides."), protocolVersion: exports_external.string().describe("Protocol version this app supports.") }) });
-var d = exports_external.object({ protocolVersion: exports_external.string().describe('Negotiated protocol version string (e.g., "2025-11-21").'), hostInfo: ImplementationSchema.describe("Host application identification and version."), hostCapabilities: n.describe("Features and capabilities provided by the host."), hostContext: q.describe("Rich context about the host environment.") }).passthrough();
+var k = exports_external.object({ method: exports_external.literal("ui/notifications/host-context-changed"), params: x.describe("Partial context update containing only changed fields.") });
+var d = exports_external.object({ method: exports_external.literal("ui/update-model-context"), params: exports_external.object({ content: exports_external.array(ContentBlockSchema).optional().describe("Context content blocks (text, image, etc.)."), structuredContent: exports_external.record(exports_external.string(), exports_external.unknown().describe("Structured content for machine-readable context data.")).optional().describe("Structured content for machine-readable context data.") }) });
+var b = exports_external.object({ method: exports_external.literal("ui/initialize"), params: exports_external.object({ appInfo: ImplementationSchema.describe("App identification (name and version)."), appCapabilities: l.describe("Features and capabilities this app provides."), protocolVersion: exports_external.string().describe("Protocol version this app supports.") }) });
+var u = exports_external.object({ protocolVersion: exports_external.string().describe('Negotiated protocol version string (e.g., "2025-11-21").'), hostInfo: ImplementationSchema.describe("Host application identification and version."), hostCapabilities: r.describe("Features and capabilities provided by the host."), hostContext: x.describe("Rich context about the host environment.") }).passthrough();
 
-class N {
+class z2 {
   eventTarget;
   eventSource;
   messageListener;
@@ -15384,7 +15462,7 @@ class N {
     window.addEventListener("message", this.messageListener);
   }
   async send(X, Y) {
-    if (X.method !== _)
+    if (X.method !== V)
       console.debug("Sending message", X);
     this.eventTarget.postMessage(X, "*");
   }
@@ -15397,13 +15475,18 @@ class N {
   sessionId;
   setProtocolVersion;
 }
-class CQ extends Protocol {
+class qQ extends j {
   _appInfo;
   _capabilities;
   options;
   _hostCapabilities;
   _hostInfo;
   _hostContext;
+  eventSchemas = { toolinput: R, toolinputpartial: U, toolresult: v, toolcancelled: H, hostcontextchanged: k };
+  onEventDispatch(X, Y) {
+    if (X === "hostcontextchanged")
+      this._hostContext = { ...this._hostContext, ...Y };
+  }
   constructor(X, Y = {}, Z = { autoResize: true }) {
     super(Z);
     this._appInfo = X;
@@ -15411,7 +15494,7 @@ class CQ extends Protocol {
     this.options = Z;
     this.setRequestHandler(PingRequestSchema, ($) => {
       return console.log("Received ping:", $.params), {};
-    }), this.onhostcontextchanged = () => {};
+    }), this.setEventHandler("hostcontextchanged", undefined);
   }
   getHostCapabilities() {
     return this._hostCapabilities;
@@ -15422,31 +15505,68 @@ class CQ extends Protocol {
   getHostContext() {
     return this._hostContext;
   }
+  get ontoolinput() {
+    return this.getEventHandler("toolinput");
+  }
   set ontoolinput(X) {
-    this.setNotificationHandler(T, (Y) => X(Y.params));
+    this.setEventHandler("toolinput", X);
+  }
+  get ontoolinputpartial() {
+    return this.getEventHandler("toolinputpartial");
   }
   set ontoolinputpartial(X) {
-    this.setNotificationHandler(w, (Y) => X(Y.params));
+    this.setEventHandler("toolinputpartial", X);
+  }
+  get ontoolresult() {
+    return this.getEventHandler("toolresult");
   }
   set ontoolresult(X) {
-    this.setNotificationHandler(g, (Y) => X(Y.params));
+    this.setEventHandler("toolresult", X);
+  }
+  get ontoolcancelled() {
+    return this.getEventHandler("toolcancelled");
   }
   set ontoolcancelled(X) {
-    this.setNotificationHandler(U, (Y) => X(Y.params));
+    this.setEventHandler("toolcancelled", X);
+  }
+  get onhostcontextchanged() {
+    return this.getEventHandler("hostcontextchanged");
   }
   set onhostcontextchanged(X) {
-    this.setNotificationHandler(k, (Y) => {
-      this._hostContext = { ...this._hostContext, ...Y.params }, X(Y.params);
-    });
+    this.setEventHandler("hostcontextchanged", X);
+  }
+  _onteardown;
+  get onteardown() {
+    return this._onteardown;
   }
   set onteardown(X) {
-    this.setRequestHandler(H, (Y, Z) => X(Y.params, Z));
+    this.warnIfRequestHandlerReplaced("onteardown", this._onteardown, X), this._onteardown = X, this.replaceRequestHandler(M, (Y, Z) => {
+      if (!this._onteardown)
+        throw Error("No onteardown handler set");
+      return this._onteardown(Y.params, Z);
+    });
+  }
+  _oncalltool;
+  get oncalltool() {
+    return this._oncalltool;
   }
   set oncalltool(X) {
-    this.setRequestHandler(CallToolRequestSchema, (Y, Z) => X(Y.params, Z));
+    this.warnIfRequestHandlerReplaced("oncalltool", this._oncalltool, X), this._oncalltool = X, this.replaceRequestHandler(CallToolRequestSchema, (Y, Z) => {
+      if (!this._oncalltool)
+        throw Error("No oncalltool handler set");
+      return this._oncalltool(Y.params, Z);
+    });
+  }
+  _onlisttools;
+  get onlisttools() {
+    return this._onlisttools;
   }
   set onlisttools(X) {
-    this.setRequestHandler(ListToolsRequestSchema, (Y, Z) => X(Y.params, Z));
+    this.warnIfRequestHandlerReplaced("onlisttools", this._onlisttools, X), this._onlisttools = X, this.replaceRequestHandler(ListToolsRequestSchema, (Y, Z) => {
+      if (!this._onlisttools)
+        throw Error("No onlisttools handler set");
+      return this._onlisttools(Y.params, Z);
+    });
   }
   assertCapabilityForMethod(X) {}
   assertRequestHandlerCapability(X) {
@@ -15482,7 +15602,7 @@ class CQ extends Protocol {
     return await this.request({ method: "resources/list", params: X }, ListResourcesResultSchema, Y);
   }
   sendMessage(X, Y) {
-    return this.request({ method: "ui/message", params: X }, L, Y);
+    return this.request({ method: "ui/message", params: X }, P, Y);
   }
   sendLog(X) {
     return this.notification({ method: "notifications/message", params: X });
@@ -15491,14 +15611,17 @@ class CQ extends Protocol {
     return this.request({ method: "ui/update-model-context", params: X }, EmptyResultSchema, Y);
   }
   openLink(X, Y) {
-    return this.request({ method: "ui/open-link", params: X }, I, Y);
+    return this.request({ method: "ui/open-link", params: X }, F, Y);
   }
   sendOpenLink = this.openLink;
   downloadFile(X, Y) {
-    return this.request({ method: "ui/download-file", params: X }, A, Y);
+    return this.request({ method: "ui/download-file", params: X }, L, Y);
+  }
+  requestTeardown(X = {}) {
+    return this.notification({ method: "ui/notifications/request-teardown", params: X });
   }
   requestDisplayMode(X, Y) {
-    return this.request({ method: "ui/request-display-mode", params: X }, v, Y);
+    return this.request({ method: "ui/request-display-mode", params: X }, q, Y);
   }
   sendSizeChanged(X) {
     return this.notification({ method: "ui/notifications/size-changed", params: X });
@@ -15509,25 +15632,25 @@ class CQ extends Protocol {
         return;
       X = true, requestAnimationFrame(() => {
         X = false;
-        let J = document.documentElement, r = J.style.width, o = J.style.height;
-        J.style.width = "fit-content", J.style.height = "max-content";
-        let x = J.getBoundingClientRect();
-        J.style.width = r, J.style.height = o;
-        let a = window.innerWidth - J.clientWidth, z2 = Math.ceil(x.width + a), B = Math.ceil(x.height);
-        if (z2 !== Y || B !== Z)
-          Y = z2, Z = B, this.sendSizeChanged({ width: z2, height: B });
+        let K = document.documentElement, N = K.style.height;
+        K.style.height = "max-content";
+        let W = Math.ceil(K.getBoundingClientRect().height);
+        K.style.height = N;
+        let O = Math.ceil(window.innerWidth);
+        if (O !== Y || W !== Z)
+          Y = O, Z = W, this.sendSizeChanged({ width: O, height: W });
       });
     };
     $();
-    let K = new ResizeObserver($);
-    return K.observe(document.documentElement), K.observe(document.body), () => K.disconnect();
+    let J = new ResizeObserver($);
+    return J.observe(document.documentElement), J.observe(document.body), () => J.disconnect();
   }
-  async connect(X = new N(window.parent, window.parent), Y) {
+  async connect(X = new z2(window.parent, window.parent), Y) {
     if (this.transport)
       throw Error("App is already connected. Call close() before connecting again.");
     await super.connect(X);
     try {
-      let Z = await this.request({ method: "ui/initialize", params: { appCapabilities: this._capabilities, appInfo: this._appInfo, protocolVersion: G } }, d, Y);
+      let Z = await this.request({ method: "ui/initialize", params: { appCapabilities: this._capabilities, appInfo: this._appInfo, protocolVersion: G } }, u, Y);
       if (Z === undefined)
         throw Error(`Server sent invalid initialize result: ${Z}`);
       if (this._hostCapabilities = Z.hostCapabilities, this._hostInfo = Z.hostInfo, this._hostContext = Z.hostContext, await this.notification({ method: "ui/notifications/initialized" }), this.options?.autoResize)
@@ -15537,7 +15660,7 @@ class CQ extends Protocol {
     }
   }
 }
-function cY(X) {
+function lY(X) {
   if (!X)
     return "";
   let Y = [];
@@ -15551,23 +15674,24 @@ function cY(X) {
     Y.push("clipboard-write");
   return Y.join("; ");
 }
-var rQ = [G];
+var lQ = [G];
 
-class oQ extends Protocol {
+class oQ extends j {
   _client;
   _hostInfo;
   _capabilities;
   _appCapabilities;
   _hostContext = {};
   _appInfo;
+  eventSchemas = { sizechange: w, sandboxready: T, initialized: S, requestteardown: C, loggingmessage: LoggingMessageNotificationSchema };
   constructor(X, Y, Z, $) {
     super($);
     this._client = X;
     this._hostInfo = Y;
     this._capabilities = Z;
-    this._hostContext = $?.hostContext || {}, this.setRequestHandler(f, (K) => this._oninitialize(K)), this.setRequestHandler(PingRequestSchema, (K, J) => {
-      return this.onping?.(K.params, J), {};
-    }), this.setRequestHandler(W, (K) => {
+    this._hostContext = $?.hostContext || {}, this.setRequestHandler(b, (J) => this._oninitialize(J)), this.setRequestHandler(PingRequestSchema, (J, K) => {
+      return this.onping?.(J.params, K), {};
+    }), this.replaceRequestHandler(_, (J) => {
       return { mode: this._hostContext.displayMode ?? "inline" };
     });
   }
@@ -15578,74 +15702,150 @@ class oQ extends Protocol {
     return this._appInfo;
   }
   onping;
+  get onsizechange() {
+    return this.getEventHandler("sizechange");
+  }
   set onsizechange(X) {
-    this.setNotificationHandler(P, (Y) => X(Y.params));
+    this.setEventHandler("sizechange", X);
+  }
+  get onsandboxready() {
+    return this.getEventHandler("sandboxready");
   }
   set onsandboxready(X) {
-    this.setNotificationHandler(F, (Y) => X(Y.params));
+    this.setEventHandler("sandboxready", X);
+  }
+  get oninitialized() {
+    return this.getEventHandler("initialized");
   }
   set oninitialized(X) {
-    this.setNotificationHandler(M, (Y) => X(Y.params));
+    this.setEventHandler("initialized", X);
+  }
+  _onmessage;
+  get onmessage() {
+    return this._onmessage;
   }
   set onmessage(X) {
-    this.setRequestHandler(C, async (Y, Z) => {
-      return X(Y.params, Z);
+    this.warnIfRequestHandlerReplaced("onmessage", this._onmessage, X), this._onmessage = X, this.replaceRequestHandler(y, async (Y, Z) => {
+      if (!this._onmessage)
+        throw Error("No onmessage handler set");
+      return this._onmessage(Y.params, Z);
     });
+  }
+  _onopenlink;
+  get onopenlink() {
+    return this._onopenlink;
   }
   set onopenlink(X) {
-    this.setRequestHandler(V, async (Y, Z) => {
-      return X(Y.params, Z);
+    this.warnIfRequestHandlerReplaced("onopenlink", this._onopenlink, X), this._onopenlink = X, this.replaceRequestHandler(A, async (Y, Z) => {
+      if (!this._onopenlink)
+        throw Error("No onopenlink handler set");
+      return this._onopenlink(Y.params, Z);
     });
+  }
+  _ondownloadfile;
+  get ondownloadfile() {
+    return this._ondownloadfile;
   }
   set ondownloadfile(X) {
-    this.setRequestHandler(S, async (Y, Z) => {
-      return X(Y.params, Z);
+    this.warnIfRequestHandlerReplaced("ondownloadfile", this._ondownloadfile, X), this._ondownloadfile = X, this.replaceRequestHandler(f, async (Y, Z) => {
+      if (!this._ondownloadfile)
+        throw Error("No ondownloadfile handler set");
+      return this._ondownloadfile(Y.params, Z);
     });
+  }
+  get onrequestteardown() {
+    return this.getEventHandler("requestteardown");
+  }
+  set onrequestteardown(X) {
+    this.setEventHandler("requestteardown", X);
+  }
+  _onrequestdisplaymode;
+  get onrequestdisplaymode() {
+    return this._onrequestdisplaymode;
   }
   set onrequestdisplaymode(X) {
-    this.setRequestHandler(W, async (Y, Z) => {
-      return X(Y.params, Z);
+    this.warnIfRequestHandlerReplaced("onrequestdisplaymode", this._onrequestdisplaymode, X), this._onrequestdisplaymode = X, this.replaceRequestHandler(_, async (Y, Z) => {
+      if (!this._onrequestdisplaymode)
+        throw Error("No onrequestdisplaymode handler set");
+      return this._onrequestdisplaymode(Y.params, Z);
     });
+  }
+  get onloggingmessage() {
+    return this.getEventHandler("loggingmessage");
   }
   set onloggingmessage(X) {
-    this.setNotificationHandler(LoggingMessageNotificationSchema, async (Y) => {
-      X(Y.params);
-    });
+    this.setEventHandler("loggingmessage", X);
+  }
+  _onupdatemodelcontext;
+  get onupdatemodelcontext() {
+    return this._onupdatemodelcontext;
   }
   set onupdatemodelcontext(X) {
-    this.setRequestHandler(y, async (Y, Z) => {
-      return X(Y.params, Z);
+    this.warnIfRequestHandlerReplaced("onupdatemodelcontext", this._onupdatemodelcontext, X), this._onupdatemodelcontext = X, this.replaceRequestHandler(d, async (Y, Z) => {
+      if (!this._onupdatemodelcontext)
+        throw Error("No onupdatemodelcontext handler set");
+      return this._onupdatemodelcontext(Y.params, Z);
     });
   }
+  _oncalltool;
+  get oncalltool() {
+    return this._oncalltool;
+  }
   set oncalltool(X) {
-    this.setRequestHandler(CallToolRequestSchema, async (Y, Z) => {
-      return X(Y.params, Z);
+    this.warnIfRequestHandlerReplaced("oncalltool", this._oncalltool, X), this._oncalltool = X, this.replaceRequestHandler(CallToolRequestSchema, async (Y, Z) => {
+      if (!this._oncalltool)
+        throw Error("No oncalltool handler set");
+      return this._oncalltool(Y.params, Z);
     });
   }
   sendToolListChanged(X = {}) {
     return this.notification({ method: "notifications/tools/list_changed", params: X });
   }
+  _onlistresources;
+  get onlistresources() {
+    return this._onlistresources;
+  }
   set onlistresources(X) {
-    this.setRequestHandler(ListResourcesRequestSchema, async (Y, Z) => {
-      return X(Y.params, Z);
+    this.warnIfRequestHandlerReplaced("onlistresources", this._onlistresources, X), this._onlistresources = X, this.replaceRequestHandler(ListResourcesRequestSchema, async (Y, Z) => {
+      if (!this._onlistresources)
+        throw Error("No onlistresources handler set");
+      return this._onlistresources(Y.params, Z);
     });
+  }
+  _onlistresourcetemplates;
+  get onlistresourcetemplates() {
+    return this._onlistresourcetemplates;
   }
   set onlistresourcetemplates(X) {
-    this.setRequestHandler(ListResourceTemplatesRequestSchema, async (Y, Z) => {
-      return X(Y.params, Z);
+    this.warnIfRequestHandlerReplaced("onlistresourcetemplates", this._onlistresourcetemplates, X), this._onlistresourcetemplates = X, this.replaceRequestHandler(ListResourceTemplatesRequestSchema, async (Y, Z) => {
+      if (!this._onlistresourcetemplates)
+        throw Error("No onlistresourcetemplates handler set");
+      return this._onlistresourcetemplates(Y.params, Z);
     });
   }
+  _onreadresource;
+  get onreadresource() {
+    return this._onreadresource;
+  }
   set onreadresource(X) {
-    this.setRequestHandler(ReadResourceRequestSchema, async (Y, Z) => {
-      return X(Y.params, Z);
+    this.warnIfRequestHandlerReplaced("onreadresource", this._onreadresource, X), this._onreadresource = X, this.replaceRequestHandler(ReadResourceRequestSchema, async (Y, Z) => {
+      if (!this._onreadresource)
+        throw Error("No onreadresource handler set");
+      return this._onreadresource(Y.params, Z);
     });
   }
   sendResourceListChanged(X = {}) {
     return this.notification({ method: "notifications/resources/list_changed", params: X });
   }
+  _onlistprompts;
+  get onlistprompts() {
+    return this._onlistprompts;
+  }
   set onlistprompts(X) {
-    this.setRequestHandler(ListPromptsRequestSchema, async (Y, Z) => {
-      return X(Y.params, Z);
+    this.warnIfRequestHandlerReplaced("onlistprompts", this._onlistprompts, X), this._onlistprompts = X, this.replaceRequestHandler(ListPromptsRequestSchema, async (Y, Z) => {
+      if (!this._onlistprompts)
+        throw Error("No onlistprompts handler set");
+      return this._onlistprompts(Y.params, Z);
     });
   }
   sendPromptListChanged(X = {}) {
@@ -15665,15 +15865,15 @@ class oQ extends Protocol {
   }
   async _oninitialize(X) {
     let Y = X.params.protocolVersion;
-    return this._appCapabilities = X.params.appCapabilities, this._appInfo = X.params.appInfo, { protocolVersion: rQ.includes(Y) ? Y : G, hostCapabilities: this.getCapabilities(), hostInfo: this._hostInfo, hostContext: this._hostContext };
+    return this._appCapabilities = X.params.appCapabilities, this._appInfo = X.params.appInfo, { protocolVersion: lQ.includes(Y) ? Y : G, hostCapabilities: this.getCapabilities(), hostInfo: this._hostInfo, hostContext: this._hostContext };
   }
   setHostContext(X) {
     let Y = {}, Z = false;
     for (let $ of Object.keys(X)) {
-      let K = this._hostContext[$], J = X[$];
-      if (aQ(K, J))
+      let J = this._hostContext[$], K = X[$];
+      if (tQ(J, K))
         continue;
-      Y[$] = J, Z = true;
+      Y[$] = K, Z = true;
     }
     if (Z)
       this._hostContext = X, this.sendHostContextChange(Y);
@@ -15697,9 +15897,15 @@ class oQ extends Protocol {
     return this.notification({ method: "ui/notifications/sandbox-resource-ready", params: X });
   }
   teardownResource(X, Y) {
-    return this.request({ method: "ui/resource-teardown", params: X }, R, Y);
+    return this.request({ method: "ui/resource-teardown", params: X }, g, Y);
   }
   sendResourceTeardown = this.teardownResource;
+  callTool(X, Y) {
+    return this.request({ method: "tools/call", params: X }, CallToolResultSchema, Y);
+  }
+  listTools(X, Y) {
+    return this.request({ method: "tools/list", params: X }, ListToolsResultSchema, Y);
+  }
   async connect(X) {
     if (this.transport)
       throw Error("AppBridge is already connected. Call close() before connecting again.");
@@ -15733,12 +15939,12 @@ class oQ extends Protocol {
     return super.connect(X);
   }
 }
-function aQ(X, Y) {
+function tQ(X, Y) {
   return JSON.stringify(X) === JSON.stringify(Y);
 }
 export {
-  cY as buildAllowAttribute,
-  N as PostMessageTransport,
+  lY as buildAllowAttribute,
+  z2 as PostMessageTransport,
   ListToolsRequestSchema,
   oQ as AppBridge
 };

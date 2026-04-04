@@ -12,6 +12,7 @@
   "dependencies": {
     "@modelcontextprotocol/ext-apps": "^1.2.2",
     "@modelcontextprotocol/sdk": "^1.27.1",
+    "fetch-to-node": "^2.1.0",
     "zod": "^4.3.6"
   }
 }
