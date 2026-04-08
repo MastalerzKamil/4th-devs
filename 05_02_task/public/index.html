@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Phonecall — agent głosowy (OpenAI)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: { sans: ["Inter", "system-ui", "sans-serif"] },
+          },
+        },
+      };
+    </script>
+  </head>
+  <body class="bg-[#0a0e1a] text-slate-200 min-h-screen flex items-center justify-center font-sans">
+    <main class="w-full max-w-2xl mx-auto px-5 py-16 flex flex-col items-center gap-6">
+      <div class="text-center">
+        <p class="text-[11px] uppercase tracking-[0.12em] text-slate-500 mb-1.5">S05E02 · phonecall</p>
+        <h1 class="text-3xl font-bold tracking-tight">Agent telefoniczny</h1>
+        <p class="mt-2 text-sm text-slate-400 max-w-lg">
+          Pełna automatyzacja: <code class="text-sky-300/90">start</code> na Centrali, odpowiedzi MP3 (OpenAI TTS),
+          transkrypcja (Whisper), strategia (GPT). Używa wyłącznie kluczy z głównego <code class="text-slate-500">.env</code>
+          projektu.
+        </p>
+      </div>
+
+      <div class="flex gap-3 flex-wrap justify-center w-full">
+        <button
+          id="btn-start"
+          class="px-7 py-2.5 bg-emerald-500 text-slate-950 font-semibold rounded-xl text-sm hover:bg-emerald-400 active:scale-[0.97] transition disabled:opacity-30 disabled:cursor-not-allowed"
+        >
+          Start sesji (auto)
+        </button>
+        <button
+          id="btn-stop"
+          class="px-7 py-2.5 bg-slate-800 text-slate-300 font-semibold rounded-xl text-sm border border-white/[0.06] hover:bg-slate-700 active:scale-[0.97] transition disabled:opacity-30 disabled:cursor-not-allowed"
+          disabled
+        >
+          Stop sesji
+        </button>
+      </div>
+
+      <div class="w-full grid grid-cols-2 gap-3">
+        <div class="rounded-xl bg-slate-900/60 border border-white/[0.06] px-4 py-3">
+          <div class="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Stan</div>
+          <div class="font-semibold text-sm" id="st-run">idle</div>
+        </div>
+        <div class="rounded-xl bg-slate-900/60 border border-white/[0.06] px-4 py-3">
+          <div class="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Konfiguracja</div>
+          <div class="font-semibold text-xs text-slate-400" id="st-cfg">…</div>
+        </div>
+        <div class="rounded-xl bg-slate-900/60 border border-white/[0.06] px-4 py-3 col-span-2">
+          <div class="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Pamięć (sesje zapisane)</div>
+          <div class="font-semibold text-xs text-slate-400" id="st-memory">…</div>
+        </div>
+      </div>
+
+      <details class="w-full group" open>
+        <summary
+          class="text-[10px] uppercase tracking-wider text-slate-500 cursor-pointer select-none mb-2 hover:text-slate-400 transition"
+        >
+          Dziennik (odświeżany automatycznie)
+        </summary>
+        <div class="rounded-2xl bg-slate-900/60 border border-white/[0.06] p-4">
+          <div
+            id="log"
+            class="font-mono text-[11px] max-h-80 overflow-auto text-slate-400 whitespace-pre-wrap leading-relaxed"
+          ></div>
+        </div>
+      </details>
+    </main>
+
+    <script type="module">
+      const $ = (id) => document.getElementById(id);
+      const btnStart = $("btn-start");
+      const btnStop = $("btn-stop");
+      const stRun = $("st-run");
+      const stCfg = $("st-cfg");
+      const stMemory = $("st-memory");
+      const logEl = $("log");
+
+      let pollId = null;
+
+      async function refreshHealth() {
+        try {
+          const r = await fetch("/api/health");
+          const j = await r.json();
+          stCfg.textContent = `OpenAI: ${j.hasOpenAI ? "ok" : "brak"} · Hub: ${j.hasHub ? "ok" : "brak"}`;
+          const running = Boolean(j.running);
+          stRun.textContent = running ? "działa" : "idle";
+          btnStart.disabled = running || !j.hasOpenAI || !j.hasHub;
+          btnStop.disabled = !running;
+        } catch {
+          stCfg.textContent = "nie można odczytać /api/health";
+        }
+      }
+
+      async function refreshLog() {
+        try {
+          const r = await fetch("/api/log");
+          const j = await r.json();
+          logEl.textContent = (j.lines ?? []).join("\n");
+          logEl.scrollTop = logEl.scrollHeight;
+        } catch {}
+      }
+
+      async function refreshMemory() {
+        try {
+          const r = await fetch("/api/memory");
+          const j = await r.json();
+          if (!j.ok) {
+            stMemory.textContent = j.error ?? "błąd";
+            return;
+          }
+          const n = j.sessions ?? 0;
+          const last = j.lastOutcome ?? "—";
+          stMemory.textContent = `${n} sesji w .data · ostatni wynik: ${last}`;
+        } catch {
+          stMemory.textContent = "brak odczytu";
+        }
+      }
+
+      btnStart.addEventListener("click", async () => {
+        btnStart.disabled = true;
+        try {
+          const r = await fetch("/api/start", { method: "POST" });
+          const j = await r.json();
+          if (!j.ok) {
+            alert(j.error ?? "start failed");
+          }
+        } catch (e) {
+          alert(e?.message ?? String(e));
+        }
+        await refreshHealth();
+        await refreshLog();
+      });
+
+      btnStop.addEventListener("click", async () => {
+        try {
+          await fetch("/api/stop", { method: "POST" });
+        } catch {}
+        await refreshHealth();
+        await refreshLog();
+      });
+
+      await refreshHealth();
+      await refreshLog();
+      await refreshMemory();
+      pollId = setInterval(async () => {
+        await refreshHealth();
+        await refreshLog();
+        await refreshMemory();
+      }, 800);
+    </script>
+  </body>
+</html>

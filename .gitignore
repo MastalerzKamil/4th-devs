@@ -8,3 +8,6 @@ people.csv
 sessions/
 google_credentials.json
 google_token.json
+
+# 05_02_task — persisted phonecall learning store
+05_02_task/.data/

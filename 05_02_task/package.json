@@ -1,0 +1,14 @@
+{
+  "name": "05_02_task",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --env-file=../.env src/server.js",
+    "start": "node --env-file=../.env src/server.js"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.19.11",
+    "hono": "^4.12.8",
+    "openai": "^4.104.0"
+  }
+}
