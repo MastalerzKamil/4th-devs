@@ -43,7 +43,7 @@
         <p id="wave-placeholder" class="text-slate-600 text-sm select-none">Connect to start</p>
       </div>
 
-      <div class="flex gap-3">
+      <div class="flex gap-3 flex-wrap justify-center">
         <button
           id="btn-connect"
           class="px-7 py-2.5 bg-sky-400 text-slate-900 font-semibold rounded-xl text-sm hover:bg-sky-300 active:scale-[0.97] transition-all disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-sky-400"
@@ -56,6 +56,12 @@
           disabled
         >
           Disconnect
+        </button>
+        <button
+          id="btn-enable-audio"
+          class="hidden px-7 py-2.5 bg-amber-400 text-slate-900 font-semibold rounded-xl text-sm hover:bg-amber-300 active:scale-[0.97] transition-all"
+        >
+          🔊 Enable Audio
         </button>
       </div>
 
@@ -98,6 +104,7 @@
       const agentModeEl = $("agent-mode");
       const btnConnect = $("btn-connect");
       const btnDisconnect = $("btn-disconnect");
+      const btnEnableAudio = $("btn-enable-audio");
       const logEl = $("log");
       const audioContainer = $("audio-container");
       const waveContainer = $("wave-container");
@@ -220,6 +227,10 @@
         analyser.fftSize = 256;
         analyser.smoothingTimeConstant = 0.7;
 
+        // Chrome creates AudioContexts in "suspended" state after a user gesture
+        // window expires; resume() is required before the analyser can read data.
+        audioCtx.resume().catch(() => {});
+
         const stream = new MediaStream([track.mediaStreamTrack]);
         analyserSource = audioCtx.createMediaStreamSource(stream);
         analyserSource.connect(analyser);
@@ -261,7 +272,19 @@
         }
       };
 
+      const tryPlayAll = async () => {
+        for (const el of audioContainer.children) {
+          try { await el.play(); } catch { /* ignore */ }
+        }
+      };
+
+      const showEnableAudioBtn = () => {
+        btnEnableAudio.classList.remove("hidden");
+      };
+
       const attachRemoteAudio = async (track, participant) => {
+        // Some browsers require a fresh unlock at the moment remote audio appears.
+        await unlockAudioPlayback(room);
         const el = track.attach();
         el.autoplay = true;
         el.playsInline = true;
@@ -278,7 +301,8 @@
           stAgent.textContent = "speaking";
           startAudioAnalysis(track);
         } catch (error) {
-          log(`Audio play failed: ${error.message}`);
+          log(`Audio play failed (${error.name}): ${error.message} — click Enable Audio`);
+          showEnableAudioBtn();
         }
       };
 
@@ -353,8 +377,15 @@
             stAgent.textContent = "waiting";
           });
 
-          room.on(RoomEvent.AudioPlaybackStatusChanged, () => {
-            if (!room.canPlaybackAudio) stAgent.textContent = "audio blocked";
+          room.on(RoomEvent.AudioPlaybackStatusChanged, async () => {
+            if (!room.canPlaybackAudio) {
+              stAgent.textContent = "audio blocked";
+              log("Audio blocked by browser — click Enable Audio to unblock");
+              showEnableAudioBtn();
+              return;
+            }
+            btnEnableAudio.classList.add("hidden");
+            stAgent.textContent = "connected";
           });
 
           room.on(RoomEvent.TranscriptionReceived, (segments, participant) => {
@@ -405,6 +436,12 @@
 
       btnConnect.addEventListener("click", () => void connect());
       btnDisconnect.addEventListener("click", () => void disconnect());
+      btnEnableAudio.addEventListener("click", async () => {
+        await unlockAudioPlayback(room);
+        await tryPlayAll();
+        btnEnableAudio.classList.add("hidden");
+        log("Audio manually unlocked");
+      });
 
       window.addEventListener("resize", resizeCanvas);
       void loadAgentMode();

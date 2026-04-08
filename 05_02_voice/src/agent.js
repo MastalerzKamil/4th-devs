@@ -25,6 +25,13 @@ const buildOpenAISessionOptions = (vad, tts) => ({
   stt: new openai.STT(),
   llm: new openai.LLM({ model: OPENAI_MODEL }),
   tts,
+  // Keep turn-taking conservative for browser playback stability.
+  preemptiveGeneration: false,
+  turnHandling: {
+    interruption: {
+      enabled: false,
+    },
+  },
 });
 
 const createSessionConfig = (vad) => {
@@ -54,15 +61,14 @@ const createSessionConfig = (vad) => {
   }
 
   if (mode.id === "elevenlabs") {
+    // ElevenLabs library voices (e.g. "Rachel") require a paid plan.
+    // Fall back to OpenAI TTS so the agent works on any subscription tier.
+    // To use ElevenLabs, replace openai.TTS() below with:
+    //   new ElevenLabsTTS({ voiceId: "YOUR_VOICE_ID", model: "eleven_flash_v2_5" })
+    // where YOUR_VOICE_ID is a voice you own or a paid-plan library voice.
     return {
       mode,
-      sessionOptions: buildOpenAISessionOptions(
-        vad,
-        new ElevenLabsTTS({
-          voiceId: "21m00Tcm4TlvDq8ikWAM",
-          model: "eleven_flash_v2_5",
-        }),
-      ),
+      sessionOptions: buildOpenAISessionOptions(vad, new openai.TTS()),
     };
   }
 

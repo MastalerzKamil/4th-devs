@@ -125,8 +125,6 @@
     "prelesson19:examples": "npm run ensure:files-mcp",
     "lesson19:examples": "node ./04_04_system/demo-example-queries.js",
     "lesson19:task": "node --env-file=.env ./04_04_task/main.js",
-    "lesson21:install": "npm install --prefix ./05_01_agent_graph",
-    "lesson21:agent_graph": "cd 05_01_agent_graph && npm start",
     "lesson20:install": "npm install --prefix ./04_05_apps && npm install --prefix ./04_05_review",
     "lesson20:task": "node --env-file=.env ./04_05_task/main.js",
     "lesson20:apps": "cd 04_05_apps && bun run start",
@@ -147,7 +145,6 @@
     "lesson23:ax:optimize": "cd 05_03_ax && bun run optimize",
     "prelesson23:coding": "npm run ensure:files-mcp",
     "lesson23:coding": "cd 05_03_coding && bun run start"
-    "lesson20:review:dev": "cd 04_05_review && bun run dev:server"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0"

@@ -6,6 +6,9 @@ import WebSocket from "ws";
 
 const API_BASE = "wss://api.elevenlabs.io/v1";
 
+// How long to wait for ElevenLabs to finish after the last text is sent.
+const SYNTHESIS_TIMEOUT_MS = 15_000;
+
 class ElevenLabsSynthesizeStream extends tts.SynthesizeStream {
   label = "elevenlabs-mp3.SynthesizeStream";
   #opts;
@@ -47,37 +50,49 @@ class ElevenLabsSynthesizeStream extends tts.SynthesizeStream {
 
     const ffmpegDone = new Promise((resolve) => ffmpeg.on("close", resolve));
 
+    let audioChunksReceived = 0;
     const wsDone = new Promise((resolve) => {
       socket.on("message", (raw) => {
-        const d = JSON.parse(raw.toString());
+        let d;
+        try { d = JSON.parse(raw.toString()); } catch { return; }
         if (d.audio && d.audio.length > 10 && ffmpeg.stdin.writable) {
+          audioChunksReceived++;
           ffmpeg.stdin.write(Buffer.from(d.audio, "base64"));
+        } else if (!d.isFinal) {
+          // Log any non-audio, non-final message (usually errors from ElevenLabs)
+          console.error("[elevenlabs] unexpected message:", JSON.stringify(d));
         }
         if (d.isFinal) {
+          console.log(`[elevenlabs] isFinal received — audio chunks: ${audioChunksReceived}`);
           if (ffmpeg.stdin.writable) ffmpeg.stdin.end();
           resolve();
         }
       });
-      socket.on("close", () => {
+      socket.on("close", (code, reason) => {
+        console.log(`[elevenlabs] socket closed — code=${code} reason=${reason} audioChunks=${audioChunksReceived}`);
         if (ffmpeg.stdin.writable) ffmpeg.stdin.end();
         resolve();
       });
-      socket.on("error", () => {
+      socket.on("error", (err) => {
+        console.error("[elevenlabs] WebSocket error:", err.message);
         if (ffmpeg.stdin.writable) ffmpeg.stdin.end();
         resolve();
       });
     });
 
-    const abortHandler = () => {
-      socket.close();
+    const closeAll = () => {
+      if (socket.readyState <= WebSocket.OPEN) socket.close();
       if (ffmpeg.stdin.writable) ffmpeg.stdin.end();
     };
-    this.abortSignal.addEventListener("abort", abortHandler, { once: true });
 
+    this.abortSignal.addEventListener("abort", closeAll, { once: true });
+
+    // Wait for the WebSocket to open (throws on connection error).
     await new Promise((res, rej) => {
       socket.once("open", res);
       socket.once("error", rej);
     });
+    console.log("[elevenlabs] WebSocket open");
 
     socket.send(
       JSON.stringify({
@@ -87,20 +102,50 @@ class ElevenLabsSynthesizeStream extends tts.SynthesizeStream {
       }),
     );
 
-    for await (const data of this.input) {
-      if (this.abortSignal.aborted) break;
+    // Drain the LLM text stream with abort support.
+    // The plain `for await` hangs when the livekit framework doesn't close
+    // the TTS input iterator after LLM completion; Promise.race fixes that.
+    const abortedPromise = new Promise((resolve) => {
+      if (this.abortSignal.aborted) return resolve({ done: true });
+      this.abortSignal.addEventListener("abort", () => resolve({ done: true }), { once: true });
+    });
+
+    const iter = this.input[Symbol.asyncIterator]();
+    let tokenCount = 0;
+    console.log("[elevenlabs] waiting for LLM tokens…");
+    while (!this.abortSignal.aborted) {
+      const result = await Promise.race([iter.next(), abortedPromise]);
+      if (result.done) break;
+
+      const data = result.value;
       if (data === tts.SynthesizeStream.FLUSH_SENTINEL) {
-        socket.send(JSON.stringify({ text: " ", flush: true }));
+        if (socket.readyState === WebSocket.OPEN)
+          socket.send(JSON.stringify({ text: " ", flush: true }));
         continue;
       }
       const text = data.endsWith(" ") ? data : `${data} `;
-      if (text.trim()) socket.send(JSON.stringify({ text }));
+      if (text.trim() && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ text }));
+        if (tokenCount === 0) console.log("[elevenlabs] first token sent:", JSON.stringify(text));
+        tokenCount++;
+      }
+    }
+    console.log(`[elevenlabs] LLM drain done — ${tokenCount} token(s), aborted=${this.abortSignal.aborted}`);
+
+    // Signal end-of-text to ElevenLabs.
+    if (!this.abortSignal.aborted && socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({ text: " ", flush: true }));
+      socket.send(JSON.stringify({ text: "" }));
+      console.log("[elevenlabs] end-of-text sent, waiting for audio…");
     }
 
-    socket.send(JSON.stringify({ text: " ", flush: true }));
-    socket.send(JSON.stringify({ text: "" }));
+    // Wait for synthesis to finish, with a hard timeout so we never hang.
+    const timeout = new Promise((resolve) => setTimeout(resolve, SYNTHESIS_TIMEOUT_MS));
+    await Promise.race([Promise.all([wsDone, ffmpegDone]), timeout]).catch(() => {});
+    console.log(`[elevenlabs] synthesis done — lastFrame=${!!lastFrame}`);
 
-    await wsDone;
+    // Safety: make sure everything is torn down after timeout.
+    closeAll();
     await ffmpegDone;
 
     for (const frame of byteStream.flush()) {
@@ -111,8 +156,7 @@ class ElevenLabsSynthesizeStream extends tts.SynthesizeStream {
     if (lastFrame)
       this.queue.put({ requestId, segmentId, frame: lastFrame, final: true });
 
-    this.abortSignal.removeEventListener("abort", abortHandler);
-    if (socket.readyState <= 1) socket.close();
+    this.abortSignal.removeEventListener("abort", closeAll);
   }
 }
 
