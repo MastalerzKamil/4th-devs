@@ -1,0 +1,11 @@
+{
+  "name": "05_03_task",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node --env-file=../.env app.js"
+  },
+  "dependencies": {
+    "openai": "^4.104.0"
+  }
+}
